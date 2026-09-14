@@ -100,14 +100,27 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
 
     private void sendUsage(CommandSender sender, CommandNode node) {
         Set<String> usages = new LinkedHashSet<>();
-        this.collectUsages(node, usages);
+        this.collectUsages(sender, node, usages);
+        if (usages.isEmpty() && this.hasDeclaredUsage(node)) {
+            sender.sendMessage(NO_PERMISSION);
+            return;
+        }
         if (usages.isEmpty()) sender.sendMessage("§c用法:/" + node.name());
         for (String usage : usages) sender.sendMessage("§c用法:" + usage);
     }
 
-    private void collectUsages(CommandNode node, Set<String> usages) {
+    private void collectUsages(CommandSender sender, CommandNode node, Set<String> usages) {
+        if (!this.hasPermission(sender, node)) return;
         usages.addAll(node.usages());
-        for (CommandNode child : node.children()) this.collectUsages(child, usages);
+        for (CommandNode child : node.children()) this.collectUsages(sender, child, usages);
+    }
+
+    private boolean hasDeclaredUsage(CommandNode node) {
+        if (!node.usages().isEmpty()) return true;
+        for (CommandNode child : node.children()) {
+            if (this.hasDeclaredUsage(child)) return true;
+        }
+        return false;
     }
 
     private boolean hasPermission(CommandSender sender, CommandNode node) {

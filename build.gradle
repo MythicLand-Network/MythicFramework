@@ -59,6 +59,7 @@ project(':mythic-framework-bukkit') {
     dependencies {
         api project(':mythic-framework-core')
         compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
+        testImplementation 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
     }
 
     tasks.named('jar') {
@@ -67,5 +68,18 @@ project(':mythic-framework-bukkit') {
 
     tasks.named('sourcesJar') {
         archiveFileName = 'MythicFramework-Bukkit-sources.jar'
+    }
+}
+
+project(':mythic-framework-world') {
+    repositories {
+        mavenLocal()
+    }
+    dependencies {
+        compileOnly 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+        testImplementation 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+    }
+    tasks.named('jar') {
+        archiveFileName = 'MythicFramework-World.jar'
     }
 }
