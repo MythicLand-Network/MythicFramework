@@ -26,8 +26,9 @@ public final class BukkitCommandRegistrar {
         CommandRouteCompiler compiler = new CommandRouteCompiler(componentResolver);
         Map<String, CommandSpec> specs = new LinkedHashMap<>();
         for (AbstractCommand command : commands) {
-            CommandSpec compiled = compiler.compile(command);
-            specs.merge(compiled.rootName().toLowerCase(), compiled, CommandSpec::merge);
+            for (CommandSpec compiled : compiler.compileAll(command)) {
+                specs.merge(compiled.rootName().toLowerCase(), compiled, CommandSpec::merge);
+            }
         }
         for (CommandSpec spec : specs.values()) {
             PluginCommand pluginCommand = plugin.getCommand(spec.rootName());

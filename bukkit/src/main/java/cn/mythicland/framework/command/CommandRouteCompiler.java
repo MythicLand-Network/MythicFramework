@@ -17,6 +17,16 @@ public final class CommandRouteCompiler {
     }
 
     public CommandSpec compile(AbstractCommand command) {
+        List<CommandSpec> compiled = this.compileAll(command);
+        if (compiled.size() != 1) {
+            throw new IllegalStateException(
+                    "Command component declares multiple command roots: " + command.getClass().getName()
+            );
+        }
+        return compiled.getFirst();
+    }
+
+    public List<CommandSpec> compileAll(AbstractCommand command) {
         if (command == null) throw new IllegalArgumentException("Command component cannot be null");
 
         List<Method> routeMethods = this.routeMethods(command.getClass());
@@ -26,14 +36,14 @@ public final class CommandRouteCompiler {
             );
         }
 
-        CommandSpec compiled = null;
+        Map<String, CommandSpec> compiledByRoot = new LinkedHashMap<>();
         for (Method method : routeMethods) {
             CommandRoute route = method.getAnnotation(CommandRoute.class);
             this.validateMethod(method, route);
             CommandSpec routeSpec = CommandSpec.of(this.compileRoute(command, method, route));
-            compiled = compiled == null ? routeSpec : compiled.merge(routeSpec);
+            compiledByRoot.merge(routeSpec.rootName().toLowerCase(Locale.ROOT), routeSpec, CommandSpec::merge);
         }
-        return compiled;
+        return List.copyOf(compiledByRoot.values());
     }
 
     private List<Method> routeMethods(Class<?> commandType) {
