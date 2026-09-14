@@ -1,0 +1,71 @@
+allprojects {
+    group = 'cn.mythicland'
+    version = '1.0.0'
+
+    repositories {
+        mavenCentral()
+        maven { url = 'https://hub.spigotmc.org/nexus/repository/public/' }
+        maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+        maven { url = 'https://oss.sonatype.org/content/repositories/snapshots/' }
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release.set(21)
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        jvmArgs '-Xshare:off'
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        archiveVersion.set('')
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.10.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.mockito:mockito-core:5.12.0'
+    }
+}
+
+project(':mythic-framework-core') {
+    dependencies {
+        api 'org.reflections:reflections:0.10.2'
+    }
+
+    tasks.named('jar') {
+        archiveFileName = 'MythicFramework-Core.jar'
+    }
+
+    tasks.named('sourcesJar') {
+        archiveFileName = 'MythicFramework-Core-sources.jar'
+    }
+}
+
+project(':mythic-framework-bukkit') {
+    dependencies {
+        api project(':mythic-framework-core')
+        compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
+    }
+
+    tasks.named('jar') {
+        archiveFileName = 'MythicFramework-Bukkit.jar'
+    }
+
+    tasks.named('sourcesJar') {
+        archiveFileName = 'MythicFramework-Bukkit-sources.jar'
+    }
+}
