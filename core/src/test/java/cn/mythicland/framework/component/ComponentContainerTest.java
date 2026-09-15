@@ -44,6 +44,16 @@ class ComponentContainerTest {
     }
 
     @Test
+    void scanExcludesRejectedComponentTypes() {
+        this.container.scan(
+                "cn.mythicland.framework.component.fixture",
+                type -> type != ServiceFixture.class
+        );
+
+        assertThrows(IllegalStateException.class, () -> this.container.resolve(ServiceFixture.class));
+    }
+
+    @Test
     void failedLifecycleLoadRollsBackPreviouslyLoadedComponents() {
         RollbackFixture.EVENTS.clear();
 

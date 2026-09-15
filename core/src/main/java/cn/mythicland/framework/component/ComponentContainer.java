@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public final class ComponentContainer implements ComponentResolver {
     private final Map<Class<?>, Object> components = new LinkedHashMap<>();
@@ -41,12 +42,19 @@ public final class ComponentContainer implements ComponentResolver {
     }
 
     public void scan(String basePackage) {
+        this.scan(basePackage, type -> true);
+    }
+
+    public void scan(String basePackage, Predicate<Class<?>> typeFilter) {
         Reflections reflections = new Reflections(basePackage);
         this.managedTypes.clear();
-        this.managedTypes.addAll(reflections.getTypesAnnotatedWith(InjectComponent.class));
+        reflections.getTypesAnnotatedWith(InjectComponent.class).stream()
+                .filter(typeFilter)
+                .forEach(this.managedTypes::add);
         for (Class<? extends Annotation> role : componentRoles(reflections)) {
             Class<?> contract = role.getAnnotation(ComponentRole.class).contract();
-            Set<Class<?>> roleTypes = reflections.getTypesAnnotatedWith(role);
+            Set<Class<?>> roleTypes = new LinkedHashSet<>(reflections.getTypesAnnotatedWith(role));
+            roleTypes.removeIf(type -> !typeFilter.test(type));
             for (Class<?> roleType : roleTypes) {
                 if (!contract.isAssignableFrom(roleType)) {
                     throw new IllegalStateException(roleType.getName() + " does not implement " + contract.getName());
@@ -182,7 +190,7 @@ public final class ComponentContainer implements ComponentResolver {
 
     private int phaseOrdinal(ManagedLifecycle lifecycle) {
         LoadOrder order = lifecycle.getClass().getAnnotation(LoadOrder.class);
-        return order == null ? LoadPhase.SERVICES.ordinal() : order.phase().ordinal();
+        return order == null ? LoadPhase.SERVICES : order.phase();
     }
 
     private Object tryCreate(Class<?> type, ComponentArguments<?> arguments) {

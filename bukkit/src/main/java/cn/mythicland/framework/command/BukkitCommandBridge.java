@@ -29,8 +29,12 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
     public boolean onCommand(CommandSender sender, Command command, String label, String[] arguments) {
         try {
             this.execute(sender, label, arguments == null ? new String[0] : arguments);
-        } catch (RuntimeException exception) {
-            this.plugin.getLogger().log(Level.SEVERE, "Unhandled command exception: /" + label, exception);
+        } catch (Exception exception) {
+            this.plugin.getLogger().log(
+                    Level.SEVERE,
+                    "Unhandled command exception: /" + label + " " + String.join(" ", arguments),
+                    exception
+            );
             sender.sendMessage("§c命令执行失败, 异常已写入后台日志。");
         }
         return true;
@@ -74,11 +78,15 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
         int pathTokens = Math.max(0, arguments.length - 1);
         for (int index = 0; index < pathTokens; index++) {
             CommandNode child = current.child(arguments[index]);
-            if (child == null) break;
+            if (child == null) {
+                if (!current.canExecute()) return List.of();
+                break;
+            }
             if (!this.hasPermission(sender, child)) return List.of();
             current = child;
             consumed++;
         }
+        if (!this.hasPermission(sender, current)) return List.of();
         String prefix = arguments.length == 0 ? "" : arguments[arguments.length - 1];
         int argumentIndex = Math.max(0, arguments.length - consumed - 1);
         CommandContext context = new CommandContext(sender, label,
@@ -87,12 +95,16 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
         for (CommandNode child : current.children()) {
             if (this.hasPermission(sender, child)) values.add(child.name());
         }
-        if (current.canExecute() && argumentIndex < current.argumentSuggestions().size()) {
-            values.addAll(current.argumentSuggestions().get(argumentIndex).suggestions(sender, context));
+        if (current.canExecute() && argumentIndex < current.maxArguments()) {
+            List<SuggestionProvider> suggestions = current.argumentSuggestions();
+            if (argumentIndex < suggestions.size()) {
+                values.addAll(suggestions.get(argumentIndex).suggestions(sender, context));
+            }
         }
         String normalized = prefix.toLowerCase(Locale.ROOT);
         List<String> result = new ArrayList<>();
         for (String value : values) {
+            if (value == null || value.isBlank()) continue;
             if (value.toLowerCase(Locale.ROOT).startsWith(normalized)) result.add(value);
         }
         return result;
