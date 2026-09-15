@@ -1,0 +1,1 @@
+apply from: new File(scriptFile.parentFile, 'runtime-library-manifest.gradle')

@@ -25,4 +25,26 @@ final class FrameworkRuntimeClassLoadingTest {
                 FrameworkRuntimeClassLoading.parentFirstClasses(List.of("cn.mythicland.example.ExamplePlugin"))
         );
     }
+
+    @Test
+    void bukkitPreset_shouldKeepPlatformAndSharedContractsParentFirst() {
+        FrameworkRuntimeClassLoading.ClassLoadingPreset preset = FrameworkRuntimeClassLoading.bukkit(
+                List.of("cn.mythicland.example."),
+                List.of("cn.mythicland.example.ExamplePlugin"),
+                List.of("cn.mythicland.membership.api.")
+        );
+
+        assertEquals(List.of("cn.mythicland.framework.", "cn.mythicland.example."), preset.childFirstPackages());
+        assertEquals(
+                List.of("org.bukkit.", "org.spigotmc.", "net.md_5.bungee.api.", "cn.mythicland.membership.api."),
+                preset.parentFirstPackages()
+        );
+        assertEquals(
+                List.of(
+                        "cn.mythicland.framework.component.ComponentRole",
+                        "cn.mythicland.example.ExamplePlugin"
+                ),
+                preset.parentFirstClasses()
+        );
+    }
 }

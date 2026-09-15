@@ -213,6 +213,14 @@ public final class RuntimeBootstrap {
             return this;
         }
 
+        public Builder classLoading(FrameworkRuntimeClassLoading.ClassLoadingPreset preset) {
+            this.childFirstPackages = preset.childFirstPackages();
+            this.parentFirstClasses = preset.parentFirstClasses();
+            this.parentFirstPackages = preset.parentFirstPackages();
+            this.parentFirstPredicate = preset.parentFirstPredicate();
+            return this;
+        }
+
         public Builder lifecycleMethods(
                 String loadMethod,
                 String enableMethod,

@@ -1,5 +1,81 @@
 import java.security.MessageDigest
 
+if (project.ext.has('mythicFrameworkConventionsApplied')) return
+project.ext.mythicFrameworkConventionsApplied = true
+
+def mythicGroup = 'cn.mythicland'
+
+if (configurations.findByName('firstPartyEmbedded') == null) {
+    configurations.create('firstPartyEmbedded') {
+        transitive = false
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+if (configurations.findByName('firstPartyRuntimeGraph') == null) {
+    configurations.create('firstPartyRuntimeGraph') {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+def syncFirstPartyRuntimeGraph = {
+    def embedded = configurations.named('firstPartyEmbedded').get()
+    def runtimeGraph = configurations.named('firstPartyRuntimeGraph').get()
+    def existing = runtimeGraph.dependencies.collect { dependency ->
+        [dependency.group, dependency.name, dependency.version].join(':')
+    } as Set
+    embedded.dependencies.each { dependency ->
+        String key = [dependency.group, dependency.name, dependency.version].join(':')
+        if (existing.add(key)) dependencies.add('firstPartyRuntimeGraph', dependency)
+    }
+}
+
+def declareFirstParty = { Object notation ->
+    if (configurations.findByName('compileOnly') != null) {
+        dependencies.add('compileOnly', notation)
+    }
+    if (configurations.findByName('testImplementation') != null) {
+        dependencies.add('testImplementation', notation)
+    }
+    dependencies.add('firstPartyEmbedded', notation)
+    dependencies.add('firstPartyRuntimeGraph', notation)
+    return notation
+}
+
+ext.firstParty = declareFirstParty
+ext.firstPartyDependency = declareFirstParty
+ext.addFirstPartyDependency = declareFirstParty
+ext.syncFirstPartyRuntimeGraph = syncFirstPartyRuntimeGraph
+
+def validateFirstParty = {
+    syncFirstPartyRuntimeGraph()
+    def artifacts = configurations.named('firstPartyEmbedded').get().resolvedConfiguration.resolvedArtifacts
+    def invalid = artifacts.findAll { artifact ->
+        artifact.moduleVersion.id.group != mythicGroup
+                && !artifact.moduleVersion.id.group.startsWith("${mythicGroup}.")
+    }
+    if (!invalid.isEmpty()) {
+        String coordinates = invalid.collect { artifact ->
+            def id = artifact.moduleVersion.id
+            "${id.group}:${id.name}:${id.version}"
+        }.sort().join(', ')
+        throw new GradleException("firstPartyEmbedded contains non-first-party dependencies: ${coordinates}")
+    }
+}
+
+ext.registerFirstPartyValidation = { String taskName = 'validateFirstPartyEmbedded' ->
+    def validation = tasks.register(taskName) {
+        doLast validateFirstParty
+    }
+    tasks.matching { task -> task.name == 'check' || task.name == 'assemble' }.configureEach {
+        dependsOn validation
+    }
+    validation
+}
+
+registerFirstPartyValidation()
+
 ext.registerRuntimeLibraryManifest = {
     String taskName,
     Provider<Directory> generatedResources,
@@ -9,16 +85,28 @@ ext.registerRuntimeLibraryManifest = {
         tasks.register(taskName) {
             outputs.file(generatedResources.map { it.file(manifestPath) })
             doLast {
+                syncFirstPartyRuntimeGraph()
                 def libraries = [:]
-                platformConfigurations.each { platform, configuration ->
+                def addArtifacts = { Configuration configuration, Collection<String> platforms ->
                     configuration.resolvedConfiguration.resolvedArtifacts.each { artifact ->
                         def id = artifact.moduleVersion.id
+                        if (id.group == mythicGroup || id.group.startsWith("${mythicGroup}.")) return
                         def coordinate = "${id.group}:${artifact.name}:${id.version}"
                         def entry = libraries.computeIfAbsent(coordinate) {
                             [artifact: artifact, platforms: new LinkedHashSet<String>()]
                         }
-                        entry.platforms.add(platform)
+                        entry.platforms.addAll(platforms)
                     }
+                }
+                platformConfigurations.each { platform, configuration ->
+                    addArtifacts(configuration, [platform])
+                }
+                def firstPartyRuntimeGraph = configurations.findByName('firstPartyRuntimeGraph')
+                if (firstPartyRuntimeGraph != null && !platformConfigurations.isEmpty()) {
+                    def firstPartyPlatforms = platformConfigurations.containsKey('common')
+                            ? ['common']
+                            : platformConfigurations.keySet()
+                    addArtifacts(firstPartyRuntimeGraph, firstPartyPlatforms)
                 }
 
                 def output = generatedResources.get().file(manifestPath).asFile

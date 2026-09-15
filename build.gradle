@@ -37,6 +37,7 @@ subprojects {
     dependencies {
         testImplementation platform('org.junit:junit-bom:5.10.2')
         testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
         testImplementation 'org.mockito:mockito-core:5.12.0'
     }
 }
@@ -72,14 +73,21 @@ project(':mythic-framework-bukkit') {
 }
 
 project(':mythic-framework-world') {
-    repositories {
-        mavenLocal()
-    }
+    apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
     dependencies {
-        compileOnly 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
-        testImplementation 'org.spigotmc:spigot:1.8.8-R0.1-SNAPSHOT'
+        compileOnly files(spigot188Jar)
+        testImplementation files(spigot188Jar)
+    }
+    tasks.named('compileJava') {
+        dependsOn tasks.named('prepareSpigot188')
+    }
+    tasks.named('compileTestJava') {
+        dependsOn tasks.named('prepareSpigot188')
     }
     tasks.named('jar') {
         archiveFileName = 'MythicFramework-World.jar'
+    }
+    tasks.named('sourcesJar') {
+        archiveFileName = 'MythicFramework-World-sources.jar'
     }
 }
