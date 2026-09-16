@@ -37,6 +37,9 @@ public final class RuntimeBootstrap {
                     "Failed to load " + this.configuration.runtimeName() + " runtime",
                     exception
             );
+        } catch (Error error) {
+            this.closeAfterFailure(error);
+            throw error;
         }
     }
 
@@ -135,7 +138,7 @@ public final class RuntimeBootstrap {
         return codeSource.getLocation();
     }
 
-    private void closeAfterFailure(Exception failure) {
+    private void closeAfterFailure(Throwable failure) {
         this.runtime = null;
         if (this.classLoader == null) return;
         try {

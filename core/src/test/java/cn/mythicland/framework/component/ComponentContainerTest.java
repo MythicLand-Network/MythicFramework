@@ -54,6 +54,42 @@ class ComponentContainerTest {
     }
 
     @Test
+    void discoverIndexesComponentsWithoutValidatingUnresolvedDependencies() {
+        this.container.discover(
+                "cn.mythicland.framework.component.fixture",
+                type -> type == ServiceFixture.class
+        );
+
+        assertEquals(java.util.List.of(ServiceFixture.class), this.container.managedTypes());
+        assertThrows(IllegalStateException.class, () -> this.container.resolve(ServiceFixture.class));
+    }
+
+    @Test
+    void scanKeepsExplicitlyBoundManagedComponentsOutsideTheSourceFilter() {
+        ConfigurationFixture configuration = new ConfigurationFixture();
+        this.container.bind(ConfigurationFixture.class, configuration);
+
+        this.container.scan(
+                "cn.mythicland.framework.component.fixture",
+                type -> type != ConfigurationFixture.class
+        );
+
+        assertSame(configuration, this.container.resolve(ConfigurationFixture.class));
+        assertSame(configuration, this.container.resolve(ServiceFixture.class).configuration());
+        assertEquals(java.util.List.of("configuration.load", "service.load"), ConfigurationFixture.EVENTS);
+    }
+
+    @Test
+    void liveContainerCannotBeScannedAgain() {
+        this.container.scan("cn.mythicland.framework.component.fixture");
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> this.container.scan("cn.mythicland.framework.component.fixture")
+        );
+    }
+
+    @Test
     void failedLifecycleLoadRollsBackPreviouslyLoadedComponents() {
         RollbackFixture.EVENTS.clear();
 

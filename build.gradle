@@ -91,3 +91,19 @@ project(':mythic-framework-world') {
         archiveFileName = 'MythicFramework-World-sources.jar'
     }
 }
+
+project(':mythic-framework-database') {
+    dependencies {
+        implementation 'com.zaxxer:HikariCP:4.0.3'
+        implementation 'org.flywaydb:flyway-core:13.4.0'
+        testRuntimeOnly 'org.xerial:sqlite-jdbc:3.46.1.3'
+    }
+
+    tasks.named('jar') {
+        archiveFileName = 'MythicFramework-Database.jar'
+    }
+
+    tasks.named('sourcesJar') {
+        archiveFileName = 'MythicFramework-Database-sources.jar'
+    }
+}

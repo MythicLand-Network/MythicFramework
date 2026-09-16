@@ -15,3 +15,6 @@ project(':mythic-framework-bukkit').projectDir = file('bukkit')
 
 include 'mythic-framework-world'
 project(':mythic-framework-world').projectDir = file('world')
+
+include 'mythic-framework-database'
+project(':mythic-framework-database').projectDir = file('database')

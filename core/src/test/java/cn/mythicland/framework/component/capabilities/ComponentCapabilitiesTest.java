@@ -29,7 +29,7 @@ class ComponentCapabilitiesTest {
         assertEquals(2, container.resolve(ServiceConsumer.class).services.values().size());
         assertEquals("runtime", container.create(
                 RuntimeComponent.class,
-                ComponentArguments.of("runtime")
+                ComponentArguments.of(new RuntimeInput("runtime"))
         ).value);
     }
 
@@ -45,10 +45,12 @@ class ComponentCapabilitiesTest {
 
     @ServiceComponent
     @DefaultImplementation
+    @InjectComponent
     static final class PrimaryService implements Service {
     }
 
     @ServiceComponent
+    @InjectComponent
     static final class SecondaryService implements Service {
     }
 
@@ -65,8 +67,11 @@ class ComponentCapabilitiesTest {
     static final class RuntimeComponent {
         private final String value;
 
-        RuntimeComponent(@RuntimeArgument String value) {
-            this.value = value;
+        RuntimeComponent(@RuntimeArgument RuntimeInput input) {
+            this.value = input.value();
         }
+    }
+
+    record RuntimeInput(String value) {
     }
 }

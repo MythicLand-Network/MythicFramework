@@ -11,6 +11,9 @@ public final class ServiceFixture implements ManagedLifecycle {
     private final ConfigurationFixture configuration;
 
     public ServiceFixture(ConfigurationFixture configuration) {
+        if (!ConfigurationFixture.EVENTS.contains("configuration.load")) {
+            throw new IllegalStateException("Configuration must be loaded before service construction");
+        }
         this.configuration = configuration;
     }
 

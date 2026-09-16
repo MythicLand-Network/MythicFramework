@@ -1,0 +1,174 @@
+package cn.mythicland.framework.menu;
+
+import cn.mythicland.framework.bukkit.task.TaskScheduler;
+import cn.mythicland.framework.component.ComponentResolver;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.InventoryView;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+final class MenuManagerTest {
+    @Test
+    void cancelsDragThatOnlyTargetsPlayerInventory() {
+        UUID playerUniqueId = UUID.randomUUID();
+        AbstractMenu menu = menu();
+        Menu contents = new Menu(9);
+        Object holder = newHolder(playerUniqueId, menu, contents);
+        Inventory inventory = mock(Inventory.class);
+        when(inventory.getHolder()).thenReturn((InventoryHolder) holder);
+        when(inventory.getSize()).thenReturn(9);
+        InventoryView view = mock(InventoryView.class);
+        when(view.getTopInventory()).thenReturn(inventory);
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(playerUniqueId);
+        InventoryDragEvent event = mock(InventoryDragEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getView()).thenReturn(view);
+        when(event.getRawSlots()).thenReturn(Set.of(9));
+
+        newManager().handleDrag(event);
+
+        verify(event).setCancelled(true);
+    }
+
+    @Test
+    void holderReleasesInventoryEvenWhenCloseCallbackFails() {
+        IllegalStateException failure = new IllegalStateException("close failed");
+        AbstractMenu menu = new AbstractMenu() {
+            @Override
+            public String buildTitle(Player player) {
+                return "test";
+            }
+
+            @Override
+            protected int resolveRowCount(Player player) {
+                return 1;
+            }
+
+            @Override
+            public void onClose(Player player, Inventory inventory) {
+                throw failure;
+            }
+        };
+        Menu contents = new Menu(9);
+        Object holder = newHolder(UUID.randomUUID(), menu, contents);
+        Inventory inventory = mock(Inventory.class);
+        assertDoesNotThrow(() -> invoke(holder, "bind", inventory));
+
+        InvocationTargetException exception = assertThrows(
+                InvocationTargetException.class,
+                () -> invoke(holder, "close", mock(Player.class))
+        );
+
+        assertSame(failure, exception.getCause());
+        assertNull(((InventoryHolder) holder).getInventory());
+    }
+
+    @Test
+    void holderClearsContentsWhenInventoryWasNeverBound() throws ReflectiveOperationException {
+        Menu contents = new Menu(9);
+        contents.setButton(0, mock(AbstractButton.class));
+        Object holder = newHolder(UUID.randomUUID(), menu(), contents);
+
+        invoke(holder, "close", mock(Player.class));
+
+        assertNull(((InventoryHolder) holder).getInventory());
+        assertTrue(contents.getButtons().isEmpty());
+    }
+
+    @Test
+    void buildFailureDoesNotCreateMenuSession() {
+        TaskScheduler scheduler = mock(TaskScheduler.class);
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(scheduler).executeSyncIfNeeded(any(Runnable.class));
+        MenuManager manager = new MenuManager(mock(JavaPlugin.class), mock(ComponentResolver.class), scheduler);
+        Player player = mock(Player.class);
+        UUID playerUniqueId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerUniqueId);
+        AbstractMenu failingMenu = new AbstractMenu() {
+            @Override
+            public String buildTitle(Player player) {
+                return "test";
+            }
+
+            @Override
+            protected int resolveRowCount(Player player) {
+                return 1;
+            }
+
+            @Override
+            protected void populateMenu(Player player, Menu menu) {
+                throw new IllegalStateException("build failed");
+            }
+        };
+
+        assertThrows(IllegalStateException.class, () -> manager.open(player, failingMenu));
+        assertFalse(manager.hasOpenMenu(playerUniqueId));
+    }
+
+    private static MenuManager newManager() {
+        return new MenuManager(mock(JavaPlugin.class), mock(ComponentResolver.class), mock(TaskScheduler.class));
+    }
+
+    private static AbstractMenu menu() {
+        return new AbstractMenu() {
+            @Override
+            public String buildTitle(Player player) {
+                return "test";
+            }
+
+            @Override
+            protected int resolveRowCount(Player player) {
+                return 1;
+            }
+        };
+    }
+
+    private static Object newHolder(UUID playerUniqueId, AbstractMenu menu, Menu contents) {
+        try {
+            Class<?> holderType = Class.forName(MenuManager.class.getName() + "$MenuHolder");
+            Constructor<?> constructor = holderType.getDeclaredConstructor(UUID.class, AbstractMenu.class, Menu.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(playerUniqueId, menu, contents);
+        } catch (ReflectiveOperationException exception) {
+            throw new AssertionError("Failed to create menu holder fixture", exception);
+        }
+    }
+
+    private static Object invoke(Object target, String methodName, Object... arguments)
+            throws ReflectiveOperationException {
+        Method method = null;
+        for (Method candidate : target.getClass().getDeclaredMethods()) {
+            if (candidate.getName().equals(methodName)) {
+                method = candidate;
+                break;
+            }
+        }
+        if (method == null) throw new NoSuchMethodException(methodName);
+        method.setAccessible(true);
+        return method.invoke(target, arguments);
+    }
+}
