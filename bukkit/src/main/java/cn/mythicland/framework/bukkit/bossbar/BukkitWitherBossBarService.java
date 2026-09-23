@@ -3,12 +3,7 @@ package cn.mythicland.framework.bukkit.bossbar;
 import cn.mythicland.framework.bukkit.ListenerComponent;
 import cn.mythicland.framework.component.InjectComponent;
 import cn.mythicland.framework.component.ManagedLifecycle;
-import net.minecraft.server.v1_8_R3.EntityWither;
-import net.minecraft.server.v1_8_R3.Packet;
-import net.minecraft.server.v1_8_R3.PacketPlayOutEntityDestroy;
-import net.minecraft.server.v1_8_R3.PacketPlayOutEntityMetadata;
-import net.minecraft.server.v1_8_R3.PacketPlayOutEntityTeleport;
-import net.minecraft.server.v1_8_R3.PacketPlayOutSpawnEntityLiving;
+import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -33,11 +28,13 @@ import java.util.UUID;
 @InjectComponent
 @ListenerComponent
 public final class BukkitWitherBossBarService implements BossBarService, Listener, ManagedLifecycle {
-    private static final double RELOCATE_DISTANCE_SQUARED = 24.0D * 24.0D;
     private static final double BOSS_BAR_DISTANCE = 48.0D;
     private static final double WALL_SEARCH_START = 6.0D;
     private static final double WALL_SEARCH_STEP = 0.5D;
     private static final double WALL_OFFSET = 1.0D;
+    private static final double DOWNWARD_WALL_SEARCH_STEP = 0.25D;
+    private static final double WITHER_SMOKE_HIDE_DEPTH = 3.5D;
+    private static final float DOWNWARD_VIEW_PITCH_THRESHOLD = 10.0F;
     private static final float VIEW_YAW_THRESHOLD = 1.5F;
     private static final float VIEW_PITCH_THRESHOLD = 1.5F;
 
@@ -120,7 +117,13 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
         if (bossBar != null && bossBar.isFor(player)) bossBar.respawn();
     }
 
-    private final class PlayerBossBar {
+    private enum Relocation {
+        NONE,
+        TELEPORTED,
+        RESPAWNED
+    }
+
+    private static final class PlayerBossBar {
         private final Player player;
         private EntityWither wither;
         private Location lastPlayerLocation;
@@ -139,7 +142,7 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
 
         private void update(String title, double progress) {
             Relocation relocation = this.relocateIfNeeded();
-            float health = (float) Math.max(0.0D, Math.min(300.0D, 300.0D * progress));
+            float health = (float) Math.clamp(300.0D * progress, 0.0D, 300.0D);
             String translatedTitle = ChatColor.translateAlternateColorCodes('&', title);
             if (relocation == Relocation.NONE
                     && translatedTitle.equals(this.lastTitle)
@@ -168,7 +171,7 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
                 this.respawn();
                 return Relocation.RESPAWNED;
             }
-            if (this.lastPlayerLocation.distanceSquared(playerLocation) > RELOCATE_DISTANCE_SQUARED
+            if (this.lastPlayerLocation.distanceSquared(playerLocation) > 0.0D
                     || this.angleDifference(this.lastPlayerLocation.getYaw(), playerLocation.getYaw())
                     >= VIEW_YAW_THRESHOLD
                     || Math.abs(this.lastPlayerLocation.getPitch() - playerLocation.getPitch())
@@ -203,6 +206,9 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
 
         private Location findHiddenLocation(Location eyeLocation) {
             Vector direction = eyeLocation.getDirection().normalize();
+            if (eyeLocation.getPitch() >= DOWNWARD_VIEW_PITCH_THRESHOLD) {
+                return this.findLocationBehindWall(eyeLocation, direction);
+            }
             double farthestWallDistance = -1.0D;
             for (double distance = WALL_SEARCH_START; distance <= BOSS_BAR_DISTANCE; distance += WALL_SEARCH_STEP) {
                 Location sample = eyeLocation.clone().add(direction.clone().multiply(distance));
@@ -210,6 +216,22 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
             }
             if (farthestWallDistance >= 0.0D) {
                 return eyeLocation.clone().add(direction.multiply(farthestWallDistance + WALL_OFFSET));
+            }
+            return eyeLocation.clone().add(direction.multiply(BOSS_BAR_DISTANCE));
+        }
+
+        private Location findLocationBehindWall(Location eyeLocation, Vector direction) {
+            for (double distance = DOWNWARD_WALL_SEARCH_STEP;
+                 distance <= BOSS_BAR_DISTANCE;
+                 distance += DOWNWARD_WALL_SEARCH_STEP) {
+                Location sample = eyeLocation.clone().add(direction.clone().multiply(distance));
+                if (this.isOpaqueWall(sample.getBlock())) {
+                    double hiddenDistance = Math.min(
+                            BOSS_BAR_DISTANCE,
+                            distance + (WITHER_SMOKE_HIDE_DEPTH / Math.abs(direction.getY()))
+                    );
+                    return eyeLocation.clone().add(direction.clone().multiply(hiddenDistance));
+                }
             }
             return eyeLocation.clone().add(direction.multiply(BOSS_BAR_DISTANCE));
         }
@@ -227,11 +249,5 @@ public final class BukkitWitherBossBarService implements BossBarService, Listene
         private void send(Packet<?> packet) {
             ((CraftPlayer) this.player).getHandle().playerConnection.sendPacket(packet);
         }
-    }
-
-    private enum Relocation {
-        NONE,
-        TELEPORTED,
-        RESPAWNED
     }
 }
