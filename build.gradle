@@ -57,10 +57,20 @@ project(':mythic-framework-core') {
 }
 
 project(':mythic-framework-bukkit') {
+    apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
     dependencies {
         api project(':mythic-framework-core')
         compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
+        compileOnly files(spigot188Jar)
         testImplementation 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
+        testImplementation files(spigot188Jar)
+    }
+
+    tasks.named('compileJava') {
+        dependsOn tasks.named('prepareSpigot188')
+    }
+    tasks.named('compileTestJava') {
+        dependsOn tasks.named('prepareSpigot188')
     }
 
     tasks.named('jar') {
