@@ -89,6 +89,7 @@ public final class WorldManager implements AutoCloseable {
         World world = this.plugin.getServer().getWorld(name);
         if (world == null) throw new IllegalArgumentException("World is not loaded: " + name);
         return this.saves.save(name, () -> {
+            flushChunkWrites();
             world.save();
             flushChunkWrites();
             Path regionDirectory = regionDirectory(world.getWorldFolder().toPath(), world.getEnvironment());

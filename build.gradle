@@ -1,3 +1,7 @@
+apply plugin: 'idea'
+
+idea.module.name = name
+
 allprojects {
     group = 'cn.mythicland'
     version = '1.0.0'
@@ -45,6 +49,10 @@ subprojects {
 project(':mythic-framework-core') {
     dependencies {
         api 'org.reflections:reflections:0.10.2'
+        implementation 'it.unimi.dsi:fastutil:8.5.13'
+        implementation 'com.google.code.gson:gson:2.11.0'
+        compileOnly 'org.apache.logging.log4j:log4j-core:2.24.3'
+        testImplementation 'org.apache.logging.log4j:log4j-core:2.24.3'
     }
 
     tasks.named('jar') {
@@ -60,6 +68,7 @@ project(':mythic-framework-bukkit') {
     apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
     dependencies {
         api project(':mythic-framework-core')
+        implementation 'it.unimi.dsi:fastutil:8.5.13'
         compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
         compileOnly files(spigot188Jar)
         testImplementation 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
