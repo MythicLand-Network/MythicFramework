@@ -36,6 +36,10 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     private final Object flushWorkerMonitor;
 
     private ScheduledTaskHandle flushTask;
+    private List<Player> capturePlayers = List.of();
+    private int captureIndex;
+    private int captureBatchSize;
+    private long ticksUntilCapture;
     private volatile StoredPlayerCache<P, I> activeCache;
     private volatile boolean acceptingAsyncFlushes;
 
@@ -70,14 +74,33 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         if (this.flushTask != null) return;
         this.acceptingAsyncFlushes = true;
         this.activeCache = cache;
+        this.ticksUntilCapture = 0;
         this.flushTask = this.taskScheduler.scheduleSyncRepeating(
-                () -> {
-                    this.captureOnlineInventories(cache);
-                    this.flushAllAsync(cache);
-                },
+                () -> this.captureTick(cache),
                 this.flushIntervalTicks,
-                this.flushIntervalTicks
+                1L
         );
+    }
+
+    private void captureTick(StoredPlayerCache<P, I> cache) {
+        if (this.ticksUntilCapture-- <= 0) {
+            this.capturePlayers = List.copyOf(Bukkit.getOnlinePlayers());
+            this.captureIndex = 0;
+            this.captureBatchSize =
+                    Math.max(1, (int) Math.ceil(this.capturePlayers.size() / (double) this.flushIntervalTicks));
+            this.ticksUntilCapture = this.flushIntervalTicks - 1;
+            if (this.capturePlayers.isEmpty()) this.flushAllAsync(cache);
+        }
+        if (this.capturePlayers.isEmpty()) return;
+        int endIndex = Math.min(this.capturePlayers.size(), this.captureIndex + this.captureBatchSize);
+        while (this.captureIndex < endIndex) {
+            Player player = this.capturePlayers.get(this.captureIndex++);
+            if (Bukkit.getPlayer(player.getUniqueId()) == player) this.captureOnlineInventory(player, cache);
+        }
+        if (this.captureIndex == this.capturePlayers.size()) {
+            this.capturePlayers = List.of();
+            this.flushAllAsync(cache);
+        }
     }
 
     @Override
@@ -86,6 +109,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             this.flushTask.cancel();
             this.flushTask = null;
         }
+        this.capturePlayers = List.of();
         this.activeCache = null;
     }
 
