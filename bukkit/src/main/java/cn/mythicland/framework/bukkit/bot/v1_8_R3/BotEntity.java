@@ -9,20 +9,18 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.HashMap;
 import java.util.Map;
 import java.lang.reflect.Field;
-import java.lang.reflect.Proxy;
-import java.lang.reflect.InvocationTargetException;
 
 public abstract class BotEntity extends EntityPlayer {
     private static final IChatBaseComponent TAB_NAME = new ChatComponentText("");
     private static final Field WORLD_ACCESSES = field(World.class, "u");
     private static final Field PLAYER_STATISTICS = field(PlayerList.class, "o");
+    private static final Field GAME_MODE = field(PlayerInteractManager.class, "gamemode");
     private final boolean walking;
 
     protected BotEntity(Location location, GameProfile profile, boolean walking) {
-        super(MinecraftServer.getServer(), ((CraftWorld) location.getWorld()).getHandle(),
+        super(prepareServer(profile), ((CraftWorld) location.getWorld()).getHandle(),
                 profile, new PlayerInteractManager(((CraftWorld) location.getWorld()).getHandle()));
         releaseStatistics(server.getPlayerList(), getUniqueID(), super.getStatisticManager());
         this.walking = walking;
@@ -33,7 +31,7 @@ public abstract class BotEntity extends EntityPlayer {
             }
         };
         network.a(playerConnection);
-        this.playerInteractManager.setGameMode(WorldSettings.EnumGamemode.SURVIVAL);
+        initializeGameMode(this.playerInteractManager);
         this.invulnerableTicks = 0;
         this.joining = false;
         this.getDataWatcher().watch(10, (byte) 127);
@@ -59,6 +57,40 @@ public abstract class BotEntity extends EntityPlayer {
         }
     }
 
+    private static MinecraftServer prepareServer(GameProfile profile) {
+        MinecraftServer server = MinecraftServer.getServer();
+        prepareStatistics(server.getPlayerList(), profile.getId(), server);
+        return server;
+    }
+
+    static void prepareStatistics(PlayerList players, UUID id, MinecraftServer server) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<UUID, ServerStatisticManager> cached =
+                    (Map<UUID, ServerStatisticManager>) PLAYER_STATISTICS.get(players);
+            cached.computeIfAbsent(id, ignored -> new ServerStatisticManager(server, null) {
+                @Override
+                public void a() {
+                }
+
+                @Override
+                public void b() {
+                }
+            });
+        } catch (IllegalAccessException failure) {
+            throw new IllegalStateException("Cannot prepare server statistics for bot " + id, failure);
+        }
+    }
+
+    static void initializeGameMode(PlayerInteractManager manager) {
+        try {
+            GAME_MODE.set(manager, WorldSettings.EnumGamemode.SURVIVAL);
+            WorldSettings.EnumGamemode.SURVIVAL.a(manager.player.abilities);
+        } catch (IllegalAccessException failure) {
+            throw new IllegalStateException("Cannot initialize bot game mode", failure);
+        }
+    }
+
     static void releaseStatistics(PlayerList players, UUID id, ServerStatisticManager statistics) {
         try {
             @SuppressWarnings("unchecked")
@@ -74,25 +106,107 @@ public abstract class BotEntity extends EntityPlayer {
         try {
             @SuppressWarnings("unchecked")
             List<IWorldAccess> accesses = (List<IWorldAccess>) WORLD_ACCESSES.get(world);
-            Map<Integer, IWorldAccess> replaced = new HashMap<>();
-            for (int index = 0; index < accesses.size(); index++) {
-                IWorldAccess access = accesses.get(index);
-                if (!(access instanceof WorldManager)) continue;
-                replaced.put(index, access);
-                accesses.set(index, (IWorldAccess) Proxy.newProxyInstance(IWorldAccess.class.getClassLoader(),
-                        new Class<?>[]{IWorldAccess.class}, (proxy, method, arguments) -> {
-                            if (method.getName().equals("a") && arguments != null && arguments.length == 1 &&
-                                    arguments[0] == this) return null;
-                            try {return method.invoke(access, arguments);} catch (InvocationTargetException failure) {
-                                throw failure.getCause();
-                            }
-                        }));
+            IWorldAccess[] original = accesses.toArray(IWorldAccess[]::new);
+            for (int index = 0; index < original.length; index++) {
+                if (original[index] instanceof WorldManager)
+                    accesses.set(index, new UntrackedWorldAccess(original[index], this));
             }
             try {return world.addEntity(this, CreatureSpawnEvent.SpawnReason.CUSTOM);} finally {
-                replaced.forEach(accesses::set);
+                for (int index = 0; index < original.length; index++) {
+                    if (original[index] instanceof WorldManager) accesses.set(index, original[index]);
+                }
             }
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Cannot register untracked bot entity", failure);
+        }
+    }
+
+    static final class UntrackedWorldAccess implements IWorldAccess {
+        private final IWorldAccess delegate;
+        private final Entity bot;
+
+        UntrackedWorldAccess(IWorldAccess delegate, Entity bot) {
+            this.delegate = delegate;
+            this.bot = bot;
+        }
+
+        @Override
+        public void a(BlockPosition position) {
+            delegate.a(position);
+        }
+
+        @Override
+        public void b(BlockPosition position) {
+            delegate.b(position);
+        }
+
+        @Override
+        public void a(int x1, int y1, int z1, int x2, int y2, int z2) {
+            delegate.a(x1, y1, z1, x2, y2, z2);
+        }
+
+        @Override
+        public void a(String sound, double x, double y, double z, float volume, float pitch) {
+            delegate.a(sound, x, y, z, volume, pitch);
+        }
+
+        @Override
+        public void a(
+                EntityHuman player,
+                String sound,
+                double x,
+                double y,
+                double z,
+                float volume,
+                float pitch
+        ) {
+            delegate.a(player, sound, x, y, z, volume, pitch);
+        }
+
+        @Override
+        public void a(
+                int particle,
+                boolean longDistance,
+                double x,
+                double y,
+                double z,
+                double dx,
+                double dy,
+                double dz,
+                int... data
+        ) {
+            delegate.a(particle, longDistance, x, y, z, dx, dy, dz, data);
+        }
+
+        @Override
+        public void a(Entity entity) {
+            if (entity == bot) return;
+            delegate.a(entity);
+        }
+
+        @Override
+        public void b(Entity entity) {
+            delegate.b(entity);
+        }
+
+        @Override
+        public void a(String sound, BlockPosition position) {
+            delegate.a(sound, position);
+        }
+
+        @Override
+        public void a(int effect, BlockPosition position, int data) {
+            delegate.a(effect, position, data);
+        }
+
+        @Override
+        public void a(EntityHuman player, int effect, BlockPosition position, int data) {
+            delegate.a(player, effect, position, data);
+        }
+
+        @Override
+        public void b(int breaker, BlockPosition position, int stage) {
+            delegate.b(breaker, position, stage);
         }
     }
 
@@ -131,6 +245,7 @@ public abstract class BotEntity extends EntityPlayer {
 
     public void step(float strafe, float forward, double speed, boolean jump) {
         if (dead) return;
+        S = 0.6F;
         updateSprinting();
         AttributeInstance movement = getAttributeInstance(GenericAttributes.MOVEMENT_SPEED);
         movement.setValue(0.1D * speed * (getBukkitEntity().getWalkSpeed() / 0.2D));

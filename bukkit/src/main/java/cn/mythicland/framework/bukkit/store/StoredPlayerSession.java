@@ -2,11 +2,13 @@ package cn.mythicland.framework.bukkit.store;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.UnaryOperator;
 
 public final class StoredPlayerSession<P, I> {
     private final UUID uniqueId;
     private final StoredPlayerProfile<P> profileVersioner;
+    private final ReentrantLock flushLock = new ReentrantLock(true);
 
     private P profileData;
     private I inventoryData;
@@ -30,6 +32,10 @@ public final class StoredPlayerSession<P, I> {
 
     public UUID uniqueId() {
         return this.uniqueId;
+    }
+
+    ReentrantLock flushLock() {
+        return this.flushLock;
     }
 
     public synchronized StoredPlayerData<P, I> snapshot() {

@@ -193,8 +193,11 @@ public class BotVisibility {
         if (distance > config.viewDistance() * config.viewDistance()) return false;
         if (fighting) return true;
         Activity current = activity.get(player.getUniqueId());
-        if (eye.getY() > config.maxViewerY() || current != null && tick - current.tick() >= config.idleSeconds() * 20)
+        if (eye.getY() > config.maxViewerY()) return false;
+        if (current != null && tick - current.tick() >= config.idleSeconds() * 20L) {
+            this.onIdleHidden(player);
             return false;
+        }
         if (distance <= config.nearbyDistance() * config.nearbyDistance()) return true;
         double yaw = Math.toRadians(eye.getYaw());
         double pitch = Math.toRadians(eye.getPitch());
@@ -224,6 +227,13 @@ public class BotVisibility {
         Viewer viewer = viewers.get(player);
         Display display = viewer == null ? null : viewer.entities.get(bot);
         return display != null && display.spawned;
+    }
+
+    protected void onIdleHidden(Player player) {
+    }
+
+    public void restoreIdle(Player player, long tick, long idleTicks) {
+        activity.put(player.getUniqueId(), new Activity(player.getLocation(), tick - idleTicks));
     }
 
     public void action(EntityPlayer bot, int action) {

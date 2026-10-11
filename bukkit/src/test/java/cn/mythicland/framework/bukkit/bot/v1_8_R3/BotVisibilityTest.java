@@ -41,6 +41,7 @@ class BotVisibilityTest {
             when(body.getLocation()).thenAnswer(
                     call -> new Location(world, bot.locX, bot.locY, bot.locZ, bot.yaw, bot.pitch));
             List<Player> viewers = new ArrayList<>();
+            List<Location> eyes = new ArrayList<>();
             List<List<Packet<?>>> sent = new ArrayList<>();
             Location eye = new Location(world, 0, 65.62, 0);
             for (int index = 0; index < 2; index++) {
@@ -49,8 +50,10 @@ class BotVisibilityTest {
                 when(viewer.getWorld()).thenReturn(world);
                 when(viewer.canSee(body)).thenReturn(true);
                 when(viewer.hasLineOfSight(body)).thenReturn(true);
-                when(viewer.getLocation()).thenAnswer(call -> eye.clone());
-                when(viewer.getEyeLocation()).thenAnswer(call -> eye.clone());
+                Location viewerEye = eye.clone();
+                eyes.add(viewerEye);
+                when(viewer.getLocation()).thenAnswer(call -> viewerEye.clone());
+                when(viewer.getEyeLocation()).thenAnswer(call -> viewerEye.clone());
                 EntityPlayer handle = mock(EntityPlayer.class);
                 handle.playerConnection = mock(PlayerConnection.class);
                 when(viewer.getHandle()).thenReturn(handle);
@@ -64,7 +67,7 @@ class BotVisibilityTest {
                 sent.add(packets);
                 bukkit.when(() -> Bukkit.getPlayer(viewer.getUniqueId())).thenReturn(viewer);
             }
-            BotVisibility visibility = new BotVisibility();
+            BotVisibility visibility = spy(new BotVisibility());
             BotVisibilitySettings settings = new Settings(32, 30, 128, 0, 70, 10, 2, 0, 5);
             visibility.activity(viewers, 0);
             visibility.update(bot, viewers, 0, null, Set.of(), settings, null, false);
@@ -74,16 +77,54 @@ class BotVisibilityTest {
                 assertSame(sent.getFirst().stream().filter(packet::isInstance).findFirst().orElseThrow(),
                         sent.getLast().stream().filter(packet::isInstance).findFirst().orElseThrow());
             }
-            eye.setYaw(180);
+            for (int index = 0; index < viewers.size(); index++) {
+                eyes.get(index).setYaw(180);
+                when(viewers.get(index).hasLineOfSight(body)).thenReturn(false);
+            }
             visibility.activity(viewers, 10);
             visibility.update(bot, viewers, 10, null, Set.of(), settings, null, false);
             assertFalse(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            assertFalse(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            verify(visibility, never()).onIdleHidden(any());
             visibility.update(bot, viewers, 11, viewers.getFirst().getUniqueId(), Set.of(), settings, null, false);
             assertTrue(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
             assertFalse(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
-            bot.locZ = 40;
-            visibility.update(bot, viewers, 12, viewers.getFirst().getUniqueId(), Set.of(), settings, null, false);
+            for (int index = 0; index < viewers.size(); index++) {
+                eyes.get(index).setYaw(0);
+                when(viewers.get(index).hasLineOfSight(body)).thenReturn(true);
+            }
+            visibility.activity(viewers, 20);
+            visibility.update(bot, viewers, 20, null, Set.of(), settings, null, false);
+            assertTrue(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            assertTrue(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            visibility.activity(viewers, 620);
+            visibility.update(bot, viewers, 620, null, Set.of(), settings, null, false);
+            verify(visibility).onIdleHidden(viewers.getFirst());
+            verify(visibility).onIdleHidden(viewers.getLast());
             assertFalse(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            assertFalse(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            eyes.getFirst().setYaw(1);
+            visibility.activity(viewers, 621);
+            visibility.update(bot, viewers, 621, null, Set.of(), settings, null, false);
+            assertTrue(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            assertFalse(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            visibility.update(bot, viewers, 622, viewers.getLast().getUniqueId(), Set.of(), settings, null, false);
+            assertTrue(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            bot.locZ = 40;
+            clearInvocations(visibility);
+            visibility.update(bot, viewers, 640, viewers.getFirst().getUniqueId(), Set.of(), settings, null, false);
+            assertFalse(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            assertFalse(visibility.isVisible(viewers.getLast().getUniqueId(), botId));
+            verify(visibility, never()).onIdleHidden(any());
+            bot.locZ = 10;
+            visibility.restoreIdle(viewers.getFirst(), 660, 600);
+            visibility.update(bot, viewers, 660, null, Set.of(), settings, null, false);
+            assertFalse(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
+            verify(visibility).onIdleHidden(viewers.getFirst());
+            eyes.getFirst().setYaw(2);
+            visibility.activity(viewers, 661);
+            visibility.update(bot, viewers, 661, null, Set.of(), settings, null, false);
+            assertTrue(visibility.isVisible(viewers.getFirst().getUniqueId(), botId));
             visibility.destroy(bot);
             visibility.clear();
         }

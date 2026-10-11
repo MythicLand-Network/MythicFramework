@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.UnaryOperator;
@@ -32,7 +31,6 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     private final AtomicBoolean flushRequested;
     private final AtomicBoolean flushAllRequested;
     private final Queue<UUID> requestedSessionIds;
-    private final ReentrantLock flushLock;
     private final Object flushWorkerMonitor;
 
     private ScheduledTaskHandle flushTask;
@@ -64,7 +62,6 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         this.flushRequested = new AtomicBoolean(false);
         this.flushAllRequested = new AtomicBoolean(false);
         this.requestedSessionIds = new ConcurrentLinkedQueue<>();
-        this.flushLock = new ReentrantLock();
         this.flushWorkerMonitor = new Object();
         this.acceptingAsyncFlushes = true;
     }
@@ -162,16 +159,17 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
 
     @Override
     public void flushAllNow(StoredPlayerCache<P, I> cache, boolean announcePlayers) {
-        this.flushLock.lock();
+        Collection<StoredPlayerSession<P, I>> sessions = this.collectAllSessions(cache);
+        List<StoredPlayerSession<P, I>> lockedSessions = this.lockSessions(sessions);
         try {
-            List<FlushContext<P, I>> contexts = this.collectFlushContexts(this.collectAllSessions(cache));
+            List<FlushContext<P, I>> contexts = this.collectFlushContexts(sessions);
             if (contexts.isEmpty()) return;
             if (announcePlayers) {
                 this.logShutdownFlushTargets(contexts);
             }
             this.flushContexts(contexts, true);
         } finally {
-            this.flushLock.unlock();
+            this.unlockSessions(lockedSessions);
         }
     }
 
@@ -187,16 +185,16 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
 
     @Override
     public boolean flushNow(UUID playerUniqueId, StoredPlayerCache<P, I> cache) {
-        this.flushLock.lock();
+        StoredPlayerSession<P, I> session = this.findFlushTarget(playerUniqueId, cache);
+        if (session == null) return false;
+        session.flushLock().lock();
         try {
-            StoredPlayerSession<P, I> session = this.findFlushTarget(playerUniqueId, cache);
-            if (session == null) return false;
             List<FlushContext<P, I>> contexts = this.collectFlushContexts(List.of(session));
             if (contexts.isEmpty()) return false;
             this.flushContexts(contexts, true);
             return true;
         } finally {
-            this.flushLock.unlock();
+            session.flushLock().unlock();
         }
     }
 
@@ -216,10 +214,10 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             Runnable inventoryChange
     ) {
         if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Player transaction requires primary thread");
-        this.flushLock.lock();
+        StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
+        if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
+        session.flushLock().lock();
         try {
-            StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
-            if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
             P previousProfile = session.profileData();
             I previousInventory = this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
                     session.snapshot().inventoryData());
@@ -236,7 +234,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
                 throw exception;
             }
         } finally {
-            this.flushLock.unlock();
+            session.flushLock().unlock();
         }
     }
 
@@ -255,15 +253,18 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             Consumer<List<StoredPlayerFlush<P, I>>> commit
     ) {
         if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Player transaction requires primary thread");
-        this.flushLock.lock();
+        Map<Player, StoredPlayerSession<P, I>> sessions = new LinkedHashMap<>();
+        for (Player player : changes.keySet()) {
+            StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
+            if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
+            sessions.put(player, session);
+        }
+        List<StoredPlayerSession<P, I>> lockedSessions = this.lockSessions(sessions.values());
         try {
-            Map<Player, StoredPlayerSession<P, I>> sessions = new LinkedHashMap<>();
             Map<Player, P> profiles = new LinkedHashMap<>();
             Map<Player, I> inventories = new LinkedHashMap<>();
             for (Player player : changes.keySet()) {
-                StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
-                if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
-                sessions.put(player, session);
+                StoredPlayerSession<P, I> session = sessions.get(player);
                 profiles.put(player, session.profileData());
                 inventories.put(player, this.inventoryAdapter.mergeCaptured(
                         this.inventoryAdapter.capture(player), session.snapshot().inventoryData()
@@ -295,7 +296,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
                 context.session().flushSucceeded(context.request());
             }
         } finally {
-            this.flushLock.unlock();
+            this.unlockSessions(lockedSessions);
         }
     }
 
@@ -340,13 +341,13 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     private void runFlushWorker() {
         try {
             while (this.flushRequested.getAndSet(false)) {
-                this.flushLock.lock();
-                try {
-                    Collection<StoredPlayerSession<P, I>> sessions = this.collectRequestedSessionsSnapshot();
-                    List<FlushContext<P, I>> contexts = this.collectFlushContexts(sessions);
-                    this.flushContexts(contexts, false);
-                } finally {
-                    this.flushLock.unlock();
+                for (StoredPlayerSession<P, I> session : this.collectRequestedSessionsSnapshot()) {
+                    session.flushLock().lock();
+                    try {
+                        this.flushContexts(this.collectFlushContexts(List.of(session)), false);
+                    } finally {
+                        session.flushLock().unlock();
+                    }
                 }
             }
         } finally {
@@ -356,6 +357,18 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             }
             if (this.acceptingAsyncFlushes && this.flushRequested.get()) this.startFlushWorker();
         }
+    }
+
+    private List<StoredPlayerSession<P, I>> lockSessions(Collection<StoredPlayerSession<P, I>> sessions) {
+        List<StoredPlayerSession<P, I>> ordered = sessions.stream()
+                .sorted(Comparator.comparing(StoredPlayerSession::uniqueId))
+                .toList();
+        for (StoredPlayerSession<P, I> session : ordered) session.flushLock().lock();
+        return ordered;
+    }
+
+    private void unlockSessions(List<StoredPlayerSession<P, I>> sessions) {
+        for (int index = sessions.size() - 1; index >= 0; index--) sessions.get(index).flushLock().unlock();
     }
 
     private void awaitFlushWorker() {

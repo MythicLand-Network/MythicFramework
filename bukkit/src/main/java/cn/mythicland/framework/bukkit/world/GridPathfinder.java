@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.Long2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 
 import java.util.ArrayList;
@@ -117,8 +118,10 @@ public final class GridPathfinder {
         long key = key(x, y, z);
         byte known = cached ? this.walkability.get(key) : 0;
         if (known != 0) return known == 1;
-        boolean walkable = BlockMaterials.isSolid(world, x, y - 1, z)
-                && !BlockMaterials.isSolid(world, x, y, z)
+        Material ground = Material.getMaterial(world.getBlockTypeIdAt(x, y - 1, z));
+        Material feet = Material.getMaterial(world.getBlockTypeIdAt(x, y, z));
+        boolean walkable = ground.isSolid() && ground != Material.CARPET
+                && (feet == Material.CARPET || !feet.isSolid())
                 && !BlockMaterials.isSolid(world, x, y + 1, z);
         if (cached) this.walkability.put(key, (byte) (walkable ? 1 : 2));
         return walkable;
