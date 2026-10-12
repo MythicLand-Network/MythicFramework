@@ -207,6 +207,26 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         this.flushSessionsAsync(List.of(session));
     }
 
+    public boolean updateRetainedProfile(
+            UUID playerUniqueId,
+            StoredPlayerCache<P, I> cache,
+            UnaryOperator<P> change
+    ) {
+        AtomicBoolean found = new AtomicBoolean();
+        this.pendingSessions.computeIfPresent(playerUniqueId, (id, session) -> {
+            session.updateProfile(change);
+            found.set(true);
+            return session;
+        });
+        if (!found.get()) {
+            StoredPlayerSession<P, I> session = cache.findSession(playerUniqueId);
+            if (session == null) return false;
+            session.updateProfile(change);
+        }
+        flushAsync(playerUniqueId, cache);
+        return true;
+    }
+
     public void transact(
             Player player,
             StoredPlayerCache<P, I> cache,
@@ -433,7 +453,8 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
                 if (context.session().hasPendingChanges()) {
                     this.flushSessionsAsync(List.of(context.session()));
                 } else {
-                    this.pendingSessions.remove(context.session().uniqueId(), context.session());
+                    this.pendingSessions.computeIfPresent(context.session().uniqueId(), (id, session) ->
+                            session != context.session() || session.hasPendingChanges() ? session : null);
                 }
             }
         } catch (Exception exception) {

@@ -125,6 +125,24 @@ class SimpleStoredPlayerSaveServiceTest {
         assertFalse(session.hasPendingChanges());
     }
 
+    @Test
+    void retainedProfileUpdateSurvivesAnInFlightLogoutFlushAndReactivation() throws Exception {
+        StoredPlayerSession<Balance, String> session = this.session(10L);
+        org.bukkit.entity.Player player = mock(org.bukkit.entity.Player.class);
+        when(player.getUniqueId()).thenReturn(session.uniqueId());
+        this.blockFirstFlush();
+        this.saves.saveAndRemove(player, this.cache);
+        Future<?> background = this.worker.submit(this.queued.removeFirst());
+        assertTrue(this.entered.await(5, TimeUnit.SECONDS));
+        assertTrue(this.saves.updateRetainedProfile(session.uniqueId(), this.cache, old -> new Balance(50L, old.version())));
+        this.release.countDown();
+        background.get(5, TimeUnit.SECONDS);
+        while (!this.queued.isEmpty()) this.queued.removeFirst().run();
+        assertEquals(List.of(10L, 50L), this.written.stream().map(row -> row.profileData().coins()).toList());
+        assertFalse(session.hasPendingChanges());
+        assertFalse(this.saves.updateRetainedProfile(UUID.randomUUID(), this.cache, old -> old));
+    }
+
     private void blockFirstFlush() throws Exception {
         doAnswer(invocation -> {
             this.written.addAll(invocation.getArgument(0));

@@ -94,6 +94,7 @@ project(':mythic-framework-bukkit') {
 project(':mythic-framework-world') {
     apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
     dependencies {
+        api project(':mythic-framework-bukkit')
         compileOnly files(spigot188Jar)
         testImplementation files(spigot188Jar)
     }

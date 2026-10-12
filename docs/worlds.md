@@ -44,3 +44,17 @@ world-reset: false
 基准保存在 `plugins/MythicThePit/worlds/<世界名>.terrain`。其中只包含经过清理的 `.mca` 区域文件：保留方块和箱子、告示牌等方块实体, 移除区块中的普通实体。不保存或恢复 `level.dat`、`playerdata`、玩家背包、生物、掉落物、盔甲架、画、展示框、统计或业务数据库。启动替换只处理目标世界的 `region` 目录, 其他世界文件保持原状。
 
 旧版生成的 `.slime` 基准不会再读取。部署新版后应从启动命令移除 `-javaagent:MythicFramework-World-Agent.jar`；服务端停止后可移除根目录中的旧 Agent 文件。
+
+## 空世界与建筑编辑
+
+VoidWorlds.create 在 WorldInitEvent 中关闭出生区块常驻, 再通过 VoidChunkGenerator 创建空世界。宿主在常规额外世界加载之后、位置及玩法组件启用之前调用, 不需要预生成世界。
+
+1.8.8 编辑实现位于 world.v1_8_R3。AlphaSchematic.read 在 IO 执行器读取并校验 Alpha schematic, 保留 Blocks、Data、AddBlocks 和方块实体, 坐标以建筑最小角为原点并忽略 WorldEdit 偏移。共享模板保持不变, 放置时复制方块实体 NBT。
+
+宿主创建一个 SchematicWorkQueue 并通过 TaskScheduler 接入 TickWorkQueue。paste、clear、patch 和 prepare 共用 positions、nanos、chunks、activeTasks 预算并公平轮转; Task.result 返回 COMPLETED 或 CANCELLED, 失败通过 Future 异常返回。lease 只阻止编辑区块卸载, 区块加载由准备预算推进, 无人占用时由宿主关闭 lease。
+
+ChunkBlockWriter 提供 Section 修改、受影响方块实体清理与恢复、计数及光照更新、保存标记和客户端刷新。队列只请求相关区块保存, 在 IO 执行器核对区域文件中的实际修改位置及方块实体后完成任务。宿主在完成清理后才能释放地块, 负责保存业务状态并恢复未完成任务; 不逐建筑调用整世界保存或全局 FileIO 等待。
+
+时间预算限制调度工作量, 单次同步区块加载仍可能超过预算, 必须在实际服务端验证。
+
+ChestAnimations 在主线程按方块维护箱子查看人数, open 即时发送打开动画, close 下一 tick 按当前人数发送关闭动画, closeNow 用于离线即时关闭。支持普通箱子、陷阱箱和末影箱, 只发送至周围 64 格内玩家, 不加载已卸载区块。宿主负责界面生命周期与声音。
