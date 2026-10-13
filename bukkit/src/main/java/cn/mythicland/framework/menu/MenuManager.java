@@ -7,6 +7,12 @@ import cn.mythicland.framework.component.ComponentArguments;
 import cn.mythicland.framework.component.ComponentResolver;
 import cn.mythicland.framework.component.InjectComponent;
 import cn.mythicland.framework.component.ManagedLifecycle;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -24,10 +30,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
 @InjectComponent
 @ListenerComponent
 public final class MenuManager implements Listener, ManagedLifecycle {
@@ -36,6 +38,7 @@ public final class MenuManager implements Listener, ManagedLifecycle {
     private final TaskScheduler taskScheduler;
     private final Map<UUID, OpenMenuSession> openMenus;
     private long tickCounter;
+    private Predicate<Player> interactionAllowed = player -> true;
 
     public MenuManager(
             JavaPlugin plugin,
@@ -46,6 +49,10 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         this.componentResolver = componentResolver;
         this.taskScheduler = taskScheduler;
         this.openMenus = new ConcurrentHashMap<>();
+    }
+
+    public void interactionAllowed(Predicate<Player> interactionAllowed) {
+        this.interactionAllowed = interactionAllowed;
     }
 
     public void open(Player player, AbstractMenu menu) {
@@ -113,6 +120,7 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         Player player = interaction.player();
         MenuHolder holder = interaction.holder();
         event.setCancelled(true);
+        if (!this.interactionAllowed.test(player)) return;
         ClickType clickType = ClickType.fromClickType(event.getClick());
         if (clickType == null) return;
         int rawSlot = event.getRawSlot();
@@ -149,6 +157,10 @@ public final class MenuManager implements Listener, ManagedLifecycle {
     public void handleDrag(InventoryDragEvent event) {
         MenuInteraction interaction = this.resolveMenuInteraction(event);
         if (interaction == null) return;
+        if (!this.interactionAllowed.test(interaction.player())) {
+            event.setCancelled(true);
+            return;
+        }
         if (interaction.holder().menu() instanceof PlayerInventoryMenuHandler inventoryHandler
                 && inventoryHandler.handlePlayerInventoryDrag(interaction.player(), event, this)) {
             event.setCancelled(true);

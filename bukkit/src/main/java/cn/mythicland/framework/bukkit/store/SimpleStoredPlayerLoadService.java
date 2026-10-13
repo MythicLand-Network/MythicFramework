@@ -39,6 +39,14 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
 
     @Override
     public CompletableFuture<StoredPlayerData<P, I>> load(Player player, StoredPlayerCache<P, I> cache) {
+        return this.loadRetained(player, cache, null);
+    }
+
+    public CompletableFuture<StoredPlayerData<P, I>> loadRetained(
+            Player player,
+            StoredPlayerCache<P, I> cache,
+            StoredPlayerSession<P, I> retained
+    ) {
         UUID playerUniqueId = player.getUniqueId();
         StoredPlayerSession<P, I> existing = cache.findSession(playerUniqueId);
         if (existing != null) return CompletableFuture.completedFuture(existing.snapshot());
@@ -46,17 +54,18 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
         return cache.getOrStartLoading(
                 playerUniqueId,
                 player,
-                () -> this.loadAsync(playerUniqueId, player, cache)
+                () -> this.loadAsync(playerUniqueId, player, cache, retained)
         );
     }
 
     private CompletableFuture<StoredPlayerData<P, I>> loadAsync(
             UUID playerUniqueId,
             Player player,
-            StoredPlayerCache<P, I> cache
+            StoredPlayerCache<P, I> cache,
+            StoredPlayerSession<P, I> retained
     ) {
         return CompletableFuture.supplyAsync(
-                        () -> this.loadSnapshot(playerUniqueId),
+                        () -> this.loadSnapshot(playerUniqueId, retained),
                         this.ioExecutor
                 )
                 .handle((loadedData, throwable) -> {
@@ -71,14 +80,15 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
                         );
                         return this.disconnectOnMain(playerUniqueId, player, cache, cause);
                     }
-                    return this.applyLoadedDataOnMain(playerUniqueId, player, loadedData, cache);
+                    return this.applyLoadedDataOnMain(playerUniqueId, player, loadedData.data(), loadedData.inventory(), cache, retained);
                 })
                 .thenCompose(completion -> completion);
     }
 
-    private StoredPlayerData<P, I> loadSnapshot(UUID playerUniqueId) {
+    private PreparedLoad<P, I> loadSnapshot(UUID playerUniqueId, StoredPlayerSession<P, I> retained) {
         try {
-            return this.repository.load(playerUniqueId);
+            StoredPlayerData<P, I> data = retained == null ? this.repository.load(playerUniqueId) : retained.snapshot();
+            return data == null ? null : new PreparedLoad<>(data, this.inventoryAdapter.prepare(data.inventoryData()));
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to load player data for " + playerUniqueId, exception);
         }
@@ -88,28 +98,44 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
             UUID playerUniqueId,
             Player fallbackPlayer,
             StoredPlayerData<P, I> loadedData,
-            StoredPlayerCache<P, I> cache
+            StoredPlayerInventory.Prepared inventory,
+            StoredPlayerCache<P, I> cache,
+            StoredPlayerSession<P, I> retained
     ) {
         CompletableFuture<StoredPlayerData<P, I>> completion = new CompletableFuture<>();
         try {
-            this.mainThreadExecutor.accept(() -> {
-                if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
-                    completion.complete(loadedData);
-                    return;
-                }
-                try {
-                    Player player = this.resolveOnlinePlayer(playerUniqueId, fallbackPlayer);
-                    if (player == null || !player.isOnline()) {
+            this.mainThreadExecutor.accept(new Runnable() {
+                @Override
+                public void run() {
+                    if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
                         completion.complete(loadedData);
                         return;
                     }
-                    cache.putSession(playerUniqueId, new StoredPlayerSession<>(loadedData, this.profileAdapter));
-                    this.inventoryAdapter.apply(player, loadedData.inventoryData());
-                    completion.complete(loadedData);
-                } catch (Throwable throwable) {
-                    completion.completeExceptionally(throwable);
-                } finally {
-                    cache.finishLoading(playerUniqueId, fallbackPlayer);
+                    boolean rescheduled = false;
+                    StoredPlayerSession<P, I> installed = null;
+                    try {
+                        Player player = SimpleStoredPlayerLoadService.this.resolveOnlinePlayer(playerUniqueId, fallbackPlayer);
+                        if (player == null || !player.isOnline()) {
+                            completion.complete(loadedData);
+                            return;
+                        }
+                        if (!inventory.advance()) {
+                            SimpleStoredPlayerLoadService.this.mainThreadExecutor.accept(this);
+                            rescheduled = true;
+                            return;
+                        }
+                        installed = retained != null ? retained
+                                : new StoredPlayerSession<>(loadedData, SimpleStoredPlayerLoadService.this.profileAdapter);
+                        cache.putSession(playerUniqueId, installed);
+                        inventory.apply(player);
+                        completion.complete(loadedData);
+                    } catch (Throwable throwable) {
+                        if (installed != null && cache.findSession(playerUniqueId) == installed)
+                            cache.removeSession(playerUniqueId);
+                        completion.completeExceptionally(throwable);
+                    } finally {
+                        if (!rescheduled) cache.finishLoading(playerUniqueId, fallbackPlayer);
+                    }
                 }
             });
         } catch (Throwable throwable) {
@@ -161,4 +187,8 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
         }
         return null;
     }
+
+    private record PreparedLoad<P, I>(StoredPlayerData<P, I> data, StoredPlayerInventory.Prepared inventory) {
+    }
+
 }

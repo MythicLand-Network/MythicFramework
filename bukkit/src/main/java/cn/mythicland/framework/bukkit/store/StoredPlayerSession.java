@@ -56,6 +56,10 @@ public final class StoredPlayerSession<P, I> {
         return this.profileExists;
     }
 
+    public synchronized long profileRevision() {
+        return this.profileRevision;
+    }
+
     public synchronized void markProfileExists() {
         this.profileExists = true;
     }

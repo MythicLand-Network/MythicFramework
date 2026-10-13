@@ -38,6 +38,29 @@ class SimpleStoredPlayerSaveServiceTest {
     }
 
     @Test
+    void releaseCallbackRunsAfterFinalInventoryCaptureAndBeforeFlushPreparation() throws Exception {
+        var session = this.session(10L);
+        var player = mock(org.bukkit.entity.Player.class);
+        when(player.getUniqueId()).thenReturn(session.uniqueId());
+        StoredPlayerInventory<String> inventory = mock(StoredPlayerInventory.class);
+        when(inventory.capture(player)).thenReturn("final");
+        when(inventory.mergeCaptured(any(), any())).thenAnswer(call -> call.getArgument(0));
+        var service = new SimpleStoredPlayerSaveService<>(Logger.getAnonymousLogger(), this.queued::add,
+                this.repository, inventory, mock(TaskScheduler.class), 20L, ignored -> {});
+        service.saveAndRemove(player, this.cache, closing -> {
+            assertSame(session, closing);
+            assertEquals("final", closing.snapshot().inventoryData());
+            closing.updateProfile(old -> new Balance(30L, old.version()));
+            assertEquals(2L, closing.profileRevision());
+        });
+        doAnswer(call -> { this.written.addAll(call.getArgument(0)); return null; }).when(this.repository).flush(any());
+        this.queued.removeFirst().run();
+        assertEquals(30L, this.written.getFirst().profileData().coins());
+        assertEquals("final", this.written.getFirst().inventoryData());
+        assertEquals(2L, this.written.getFirst().profileRevision());
+    }
+
+    @Test
     void immediateFlushDoesNotWaitForAnotherPlayerInTheBackgroundBatch() throws Exception {
         StoredPlayerSession<Balance, String> first = this.session(10L);
         StoredPlayerSession<Balance, String> second = this.session(20L);

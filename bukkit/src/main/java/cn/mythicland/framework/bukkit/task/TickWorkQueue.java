@@ -4,9 +4,10 @@ import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
-public final class TickWorkQueue {
+public final class TickWorkQueue implements Executor {
     private final TaskScheduler scheduler;
     private final int maxTasksPerTick;
     private final long budgetNanos;
@@ -24,20 +25,26 @@ public final class TickWorkQueue {
     public <T> CompletableFuture<T> submit(Supplier<T> work) {
         Objects.requireNonNull(work, "work");
         CompletableFuture<T> result = new CompletableFuture<>();
+        this.execute(() -> {
+            try {
+                result.complete(work.get());
+            } catch (Exception exception) {
+                result.completeExceptionally(exception);
+            }
+        });
+        return result;
+    }
+
+    @Override
+    public void execute(Runnable work) {
+        Objects.requireNonNull(work, "work");
         synchronized (this.pending) {
-            this.pending.add(() -> {
-                try {
-                    result.complete(work.get());
-                } catch (Exception exception) {
-                    result.completeExceptionally(exception);
-                }
-            });
+            this.pending.add(work);
             if (!this.scheduled) {
                 this.scheduled = true;
                 this.scheduler.executeSyncLater(this::drain, 1L);
             }
         }
-        return result;
     }
 
     private void drain() {

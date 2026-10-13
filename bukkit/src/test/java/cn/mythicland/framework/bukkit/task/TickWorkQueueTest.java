@@ -74,6 +74,25 @@ final class TickWorkQueueTest {
         assertEquals(2, second.join());
     }
 
+    @Test
+    void executorSharesTheBudgetAndReschedulesAfterAnUncaughtFailure() {
+        TickWorkQueue queue = this.queue(1, TimeUnit.SECONDS.toNanos(10));
+        List<Integer> completed = new ArrayList<>();
+        queue.execute(() -> completed.add(1));
+        queue.execute(() -> {
+            throw new IllegalStateException("invalid initialization");
+        });
+        CompletableFuture<Integer> last = queue.submit(() -> 3);
+        this.tick();
+        assertEquals(List.of(1), completed);
+        assertFalse(last.isDone());
+        assertThrows(IllegalStateException.class, this::tick);
+        assertFalse(last.isDone());
+        this.tick();
+        assertEquals(3, last.join());
+        assertTrue(this.ticks.isEmpty());
+    }
+
     private TickWorkQueue queue(int maxTasks, long budgetNanos) {
         TaskScheduler scheduler = mock(TaskScheduler.class);
         doAnswer(call -> {

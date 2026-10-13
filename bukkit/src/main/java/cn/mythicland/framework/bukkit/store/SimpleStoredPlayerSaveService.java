@@ -110,6 +110,14 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         this.activeCache = null;
     }
 
+    public StoredPlayerSession<P, I> retainedSession(UUID playerUniqueId) {
+        return this.pendingSessions.get(playerUniqueId);
+    }
+
+    public void releaseRetainedSession(UUID playerUniqueId, StoredPlayerSession<P, I> session) {
+        this.pendingSessions.remove(playerUniqueId, session);
+    }
+
     @Override
     public StoredPlayerData<P, I> reactivate(Player player, StoredPlayerCache<P, I> cache) {
         UUID playerUniqueId = player.getUniqueId();
@@ -123,6 +131,10 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
 
     @Override
     public void saveAndRemove(Player player, StoredPlayerCache<P, I> cache) {
+        this.saveAndRemove(player, cache, ignored -> {});
+    }
+
+    public void saveAndRemove(Player player, StoredPlayerCache<P, I> cache, Consumer<StoredPlayerSession<P, I>> beforeFlush) {
         UUID playerUniqueId = player.getUniqueId();
         cache.cancelLoading(playerUniqueId, player);
         StoredPlayerSession<P, I> session = cache.removeSession(playerUniqueId);
@@ -131,6 +143,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
                 this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
                         session.snapshot().inventoryData())
         );
+        beforeFlush.accept(session);
         this.pendingSessions.put(playerUniqueId, session);
         this.flushSessionsAsync(List.of(session));
     }

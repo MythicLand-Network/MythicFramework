@@ -20,18 +20,22 @@ Framework 禁止依赖 MythicThePit 或其他玩法插件的模型、规则和�
 
 | 通用实现 | 所属模块与宿主边界 |
 |---|---|
+| DurationParser | core.command：通用持续时间解析与单位格式化；宿主保留命令校验和提示 |
+| MaterialNames、LocationSnapper | bukkit：材料名称解析与位置、视角吸附；宿主保留材料候选、图标与点位用途 |
+| JdbcValues | database：UUID、可空整数和时间转换；宿主提供数据库模式并负责 SQL 与事务 |
 | Cooldowns、RegistryKeyNormalizer | core：到期计时和基础名称转换；宿主负责玩家事件清理及玩法别名 |
 | GzipCodec | core：压缩、解压大小回调和 SHA-256；宿主负责版本、字段、大小限制与错误语义 |
 | AbstractYamlConfig、ConfigBinder、YamlConfigSynchronizer | bukkit.config：文件加载、字段绑定、默认值补全与未知字段清理；宿主实现 checkConfig 与 additionalConfigPaths |
 | ItemEditor、ItemEditors | bukkit.item：平台物品编辑；宿主负责标签、扣命、交易和掉落 |
 | PlayerItemHoldings | bukkit.item：统一统计和修改背包、装备、鼠标与实际容器中的物品, 排除框架菜单；宿主提供匹配及修改规则 |
+| TickWorkQueue | bukkit.task：共用按任务数量和耗时限制的主线程队列，支持 Executor 和带返回值的提交；宿主负责预算、任务粒度、有效性与初始化顺序 |
 | StoredPlayerSession、StoredPlayerCache、SimpleStoredPlayerLoadService、SimpleStoredPlayerSaveService | bukkit.store：会话、缓存与保存调度；宿主提供资料、仓库和库存适配 |
 
 ## 玩家存储时序
 
-加载在 IO 执行器读取仓库, 回到主线程后核对当前加载归属, 再安装会话并应用库存。失败处理同样回到主线程, 由宿主的 loadFailureHandler 执行。
+加载在 IO 执行器读取仓库并调用 StoredPlayerInventory.prepare，宿主只能在该阶段准备纯数据。Prepared.advance 在主线程按宿主预算推进，完成前不发布会话或应用库存；每次继续都核对当前加载归属。准备完成后在同一主线程步骤安装会话并调用 Prepared.apply，安装失败移除该次会话，避免保存半安装库存。读取和异步准备失败回到主线程，由宿主的 loadFailureHandler 执行。loadRetained 沿同一准备和安装路径复用退出待保存会话，只有安装成功才由保存服务释放对应的待保存引用。
 
-保存先在主线程捕获库存, 通过 StoredPlayerInventory.mergeCaptured 合并宿主维护的独立库存, 再构造带版本的刷盘请求。退出会话进入待保存集合, 重进可恢复同一会话；保存失败、保存期间新写入和交易回滚仍沿用会话版本与提交边界。关服等待保存完成, shutdownAnnouncement 只在宿主要求公告时执行。
+保存先在主线程捕获库存, 通过 StoredPlayerInventory.mergeCaptured 合并宿主维护的独立库存, 再构造带版本的刷盘请求。saveAndRemove 的 beforeFlush 回调在最终库存捕获后、刷盘请求构造前执行, 宿主可读取 profileRevision 绑定提交边界。退出会话进入待保存集合, 重进可恢复同一会话；保存失败、保存期间新写入和交易回滚仍沿用会话版本与提交边界。关服等待保存完成, shutdownAnnouncement 只在宿主要求公告时执行。
 
 保存按会话串行提交, 后台逐会话刷盘, 即时保存只等待目标会话正在进行的提交。多玩家事务按 UUID 顺序锁定参与会话, 保留同一数据库事务的提交与回滚边界；关服仍等待后台保存并完成最终刷盘。
 
