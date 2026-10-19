@@ -10,9 +10,12 @@ import java.util.function.Supplier;
 public final class TickWorkQueue implements Executor {
     private final TaskScheduler scheduler;
     private final int maxTasksPerTick;
-    private final long budgetNanos;
+    private long budgetNanos;
     private final Queue<Runnable> pending = new ArrayDeque<>();
+    private final Queue<Runnable> lowPriority = new ArrayDeque<>();
     private boolean scheduled;
+    private boolean draining;
+    private long startedNanos;
 
     public TickWorkQueue(TaskScheduler scheduler, int maxTasksPerTick, long budgetNanos) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -37,9 +40,17 @@ public final class TickWorkQueue implements Executor {
 
     @Override
     public void execute(Runnable work) {
+        this.execute(work, this.pending);
+    }
+
+    public void executeLowPriority(Runnable work) {
+        this.execute(work, this.lowPriority);
+    }
+
+    private void execute(Runnable work, Queue<Runnable> queue) {
         Objects.requireNonNull(work, "work");
         synchronized (this.pending) {
-            this.pending.add(work);
+            queue.add(work);
             if (!this.scheduled) {
                 this.scheduled = true;
                 this.scheduler.executeSyncLater(this::drain, 1L);
@@ -47,25 +58,38 @@ public final class TickWorkQueue implements Executor {
         }
     }
 
+    public boolean hasBudget() {
+        return this.draining && System.nanoTime() - this.startedNanos < this.budgetNanos;
+    }
+
+    public void setBudgetNanos(long budgetNanos) {
+        if (budgetNanos <= 0) throw new IllegalArgumentException("budgetNanos must be positive");
+        this.budgetNanos = budgetNanos;
+    }
+
     private void drain() {
-        long started = System.nanoTime();
-        int taskCount;
+        this.startedNanos = System.nanoTime();
+        this.draining = true;
+        int normalCount;
+        int lowCount;
         synchronized (this.pending) {
-            taskCount = Math.min(this.maxTasksPerTick, this.pending.size());
+            normalCount = Math.min(this.maxTasksPerTick, this.pending.size());
+            lowCount = Math.min(this.maxTasksPerTick - normalCount, this.lowPriority.size());
         }
         try {
-            for (int processed = 0; processed < taskCount; processed++) {
+            for (int processed = 0; processed < normalCount + lowCount; processed++) {
                 Runnable work;
                 synchronized (this.pending) {
-                    work = this.pending.poll();
+                    work = processed < normalCount ? this.pending.poll() : this.lowPriority.poll();
                 }
                 if (work == null) break;
                 work.run();
-                if (System.nanoTime() - started >= this.budgetNanos) break;
+                if (!this.hasBudget()) break;
             }
         } finally {
+            this.draining = false;
             synchronized (this.pending) {
-                if (this.pending.isEmpty()) this.scheduled = false;
+                if (this.pending.isEmpty() && this.lowPriority.isEmpty()) this.scheduled = false;
                 else this.scheduler.executeSyncLater(this::drain, 1L);
             }
         }

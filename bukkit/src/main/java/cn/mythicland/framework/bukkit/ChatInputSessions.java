@@ -7,8 +7,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerChatTabCompleteEvent;
 
 import java.util.Map;
+import java.util.List;
+import java.util.function.Function;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -22,7 +25,18 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
     }
 
     public void begin(Player player, Object owner, Predicate<String> consumes, Input input, Runnable cleanup) {
-        Session session = new Session(player, owner, consumes, input, cleanup);
+        this.begin(player, owner, consumes, input, cleanup, null);
+    }
+
+    public void begin(
+            Player player,
+            Object owner,
+            Predicate<String> consumes,
+            Input input,
+            Runnable cleanup,
+            Function<String, List<String>> completions
+    ) {
+        Session session = new Session(player, owner, consumes, input, cleanup, completions);
         Session previous = this.sessions.remove(player.getUniqueId());
         if (previous != null) previous.cleanup.run();
         this.sessions.put(player.getUniqueId(), session);
@@ -59,6 +73,14 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
     }
 
     @EventHandler
+    public void onTabComplete(PlayerChatTabCompleteEvent event) {
+        Session session = this.sessions.get(event.getPlayer().getUniqueId());
+        if (session == null || session.player != event.getPlayer() || session.completions == null) return;
+        event.getTabCompletions().clear();
+        event.getTabCompletions().addAll(session.completions.apply(event.getChatMessage()));
+    }
+
+    @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         Session session = this.sessions.remove(event.getPlayer().getUniqueId());
         if (session != null) session.cleanup.run();
@@ -76,6 +98,7 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
         Result accept(Player player, String text, boolean cancelled);
     }
 
-    private record Session(Player player, Object owner, Predicate<String> consumes, Input input, Runnable cleanup) {
+    private record Session(Player player, Object owner, Predicate<String> consumes, Input input, Runnable cleanup,
+                           Function<String, List<String>> completions) {
     }
 }

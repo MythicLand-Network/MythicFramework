@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,7 +18,7 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
     private final StoredPlayerInventory<I> inventoryAdapter;
     private final StoredPlayerProfile<P> profileAdapter;
     private final Consumer<Player> loadFailureHandler;
-    private final Consumer<Runnable> mainThreadExecutor;
+    private final BiConsumer<Player, Runnable> mainThreadExecutor;
 
     public SimpleStoredPlayerLoadService(
             Logger logger,
@@ -27,6 +28,19 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
             StoredPlayerProfile<P> profileAdapter,
             Consumer<Player> loadFailureHandler,
             Consumer<Runnable> mainThreadExecutor
+    ) {
+        this(logger, ioExecutor, repository, inventoryAdapter, profileAdapter, loadFailureHandler,
+                (player, work) -> mainThreadExecutor.accept(work));
+    }
+
+    public SimpleStoredPlayerLoadService(
+            Logger logger,
+            Executor ioExecutor,
+            StoredPlayerRepository<P, I> repository,
+            StoredPlayerInventory<I> inventoryAdapter,
+            StoredPlayerProfile<P> profileAdapter,
+            Consumer<Player> loadFailureHandler,
+            BiConsumer<Player, Runnable> mainThreadExecutor
     ) {
         this.logger = logger;
         this.ioExecutor = ioExecutor;
@@ -104,7 +118,7 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
     ) {
         CompletableFuture<StoredPlayerData<P, I>> completion = new CompletableFuture<>();
         try {
-            this.mainThreadExecutor.accept(new Runnable() {
+            this.mainThreadExecutor.accept(fallbackPlayer, new Runnable() {
                 @Override
                 public void run() {
                     if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
@@ -120,7 +134,7 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
                             return;
                         }
                         if (!inventory.advance()) {
-                            SimpleStoredPlayerLoadService.this.mainThreadExecutor.accept(this);
+                            SimpleStoredPlayerLoadService.this.mainThreadExecutor.accept(fallbackPlayer, this);
                             rescheduled = true;
                             return;
                         }
@@ -153,7 +167,7 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
     ) {
         CompletableFuture<StoredPlayerData<P, I>> completion = new CompletableFuture<>();
         try {
-            this.mainThreadExecutor.accept(() -> {
+            this.mainThreadExecutor.accept(fallbackPlayer, () -> {
                 if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
                     completion.completeExceptionally(cause);
                     return;

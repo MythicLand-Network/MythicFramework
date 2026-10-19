@@ -65,6 +65,40 @@ class ChatInputSessionsTest {
         verify(scheduler).executeSync(any());
     }
 
+    @Test
+    void tabCompletionBelongsToCurrentSessionAndStopsAfterCancellationReplacementAndClose() {
+        TaskScheduler scheduler = mock(TaskScheduler.class);
+        doAnswer(call -> { call.<Runnable>getArgument(0).run(); return null; }).when(scheduler).executeSync(any());
+        ChatInputSessions sessions = new ChatInputSessions(scheduler);
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(player.isOnline()).thenReturn(true);
+        var event = mock(org.bukkit.event.player.PlayerChatTabCompleteEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getChatMessage()).thenReturn("附魔");
+        List<String> offers = new ArrayList<>(List.of("Player"));
+        when(event.getTabCompletions()).thenReturn(offers);
+        Object owner = new Object();
+        sessions.begin(player, owner, text -> true, (sender, text, cancel) -> ChatInputSessions.Result.FINISH,
+                () -> {}, text -> List.of(text + "一", text + "二"));
+        sessions.onTabComplete(event);
+        assertEquals(List.of("附魔一", "附魔二"), offers);
+        sessions.onChat(chat(player, "cancel"));
+        offers.clear();
+        offers.add("Player");
+        sessions.onTabComplete(event);
+        assertEquals(List.of("Player"), offers);
+        sessions.begin(player, owner, text -> true, (sender, text, cancel) -> ChatInputSessions.Result.RETRY,
+                () -> {}, text -> List.of("old"));
+        sessions.begin(player, new Object(), (sender, text, cancel) -> ChatInputSessions.Result.RETRY, () -> {});
+        sessions.onTabComplete(event);
+        assertEquals(List.of("Player"), offers);
+        sessions.close();
+        sessions.onTabComplete(event);
+        assertEquals(List.of("Player"), offers);
+    }
+
+
     private AsyncPlayerChatEvent chat(Player player, String text) {
         AsyncPlayerChatEvent event = mock(AsyncPlayerChatEvent.class);
         when(event.getPlayer()).thenReturn(player);

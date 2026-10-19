@@ -14,11 +14,18 @@ public final class LocationSnapper {
         if (location == null) throw new IllegalArgumentException("location must not be null");
         if (location.getWorld() == null) throw new IllegalArgumentException("location world must not be null");
 
-        double snappedX = Math.floor(location.getX()) + 0.5D;
-        double snappedZ = Math.floor(location.getZ()) + 0.5D;
-        float snappedYaw = normalizeYaw(snapToStep(location.getYaw()));
-        float snappedPitch = clampPitch(snapToStep(location.getPitch()));
-        return new Location(location.getWorld(), snappedX, location.getY(), snappedZ, snappedYaw, snappedPitch);
+        Location result = snapBlockAndYaw(location);
+        result.setPitch(clampPitch(snapToStep(location.getPitch())));
+        return result;
+    }
+
+    public static Location snapBlockAndYaw(Location location) {
+        Location result = location.clone();
+        result.setX(Math.floor(location.getX()) + 0.5D);
+        result.setZ(Math.floor(location.getZ()) + 0.5D);
+        result.setYaw(normalizeYaw(snapToStep(location.getYaw())));
+        result.setPitch(0.0F);
+        return result;
     }
 
     private static float snapToStep(float angle) {

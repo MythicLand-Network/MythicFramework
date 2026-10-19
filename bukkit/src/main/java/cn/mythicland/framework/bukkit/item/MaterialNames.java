@@ -3,6 +3,7 @@ package cn.mythicland.framework.bukkit.item;
 import org.bukkit.Material;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 public final class MaterialNames {
     private MaterialNames() {
@@ -44,6 +45,19 @@ public final class MaterialNames {
                 "Required material for " + usage + " is unavailable. Expected one of: "
                         + Arrays.toString(exactMaterialNames)
         );
+    }
+
+    public static Material match(String rawName) {
+        String materialName = rawName == null ? "" : rawName.trim();
+        if (materialName.isEmpty()) {
+            return null;
+        }
+
+        Material material = Material.matchMaterial(materialName);
+        if (material == null) {
+            material = Material.matchMaterial(materialName.toUpperCase(Locale.ROOT));
+        }
+        return material;
     }
 
     private static Material find(String preferredName) {

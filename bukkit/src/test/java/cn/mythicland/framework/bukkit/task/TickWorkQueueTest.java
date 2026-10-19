@@ -63,9 +63,30 @@ final class TickWorkQueueTest {
     }
 
     @Test
+    void sharesTheDrainBudgetWithWorkAndClearsItAfterFailure() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        assertFalse(queue.hasBudget());
+        queue.execute(() -> {
+            assertTrue(queue.hasBudget());
+            throw new IllegalStateException("invalid initialization");
+        });
+        CompletableFuture<Boolean> next = queue.submit(queue::hasBudget);
+
+        assertThrows(IllegalStateException.class, this::tick);
+        assertFalse(queue.hasBudget());
+        assertFalse(next.isDone());
+        this.tick();
+        assertTrue(next.join());
+        assertFalse(queue.hasBudget());
+    }
+
+    @Test
     void yieldsWhenTheTimeBudgetIsExhausted() {
         TickWorkQueue queue = this.queue(4, 1L);
-        CompletableFuture<Integer> first = queue.submit(() -> 1);
+        CompletableFuture<Integer> first = queue.submit(() -> {
+            assertFalse(queue.hasBudget());
+            return 1;
+        });
         CompletableFuture<Integer> second = queue.submit(() -> 2);
         this.tick();
         assertEquals(1, first.join());
@@ -91,6 +112,50 @@ final class TickWorkQueueTest {
         this.tick();
         assertEquals(3, last.join());
         assertTrue(this.ticks.isEmpty());
+    }
+
+    @Test
+    void runsNormalWorkBeforeLowPriorityWorkAndDefersNestedSubmissions() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        List<Integer> completed = new ArrayList<>();
+        queue.executeLowPriority(() -> completed.add(3));
+        queue.execute(() -> {
+            completed.add(1);
+            queue.execute(() -> completed.add(4));
+        });
+        queue.execute(() -> completed.add(2));
+        this.tick();
+        assertEquals(List.of(1, 2, 3), completed);
+        this.tick();
+        assertEquals(List.of(1, 2, 3, 4), completed);
+    }
+
+    @Test
+    void sharesTheTimeBudgetBetweenPriorities() {
+        TickWorkQueue queue = this.queue(4, 1L);
+        List<Integer> completed = new ArrayList<>();
+        queue.executeLowPriority(() -> completed.add(2));
+        queue.execute(() -> completed.add(1));
+        this.tick();
+        assertEquals(List.of(1), completed);
+        this.tick();
+        assertEquals(List.of(1, 2), completed);
+        assertTrue(this.ticks.isEmpty());
+    }
+
+    @Test
+    void appliesTheChangedBudgetToTheNextDrain() {
+        TickWorkQueue queue = this.queue(4, 1L);
+        List<Integer> completed = new ArrayList<>();
+        queue.execute(() -> completed.add(1));
+        queue.execute(() -> completed.add(2));
+        queue.executeLowPriority(() -> completed.add(3));
+        this.tick();
+        assertEquals(List.of(1), completed);
+        queue.setBudgetNanos(TimeUnit.SECONDS.toNanos(10));
+        this.tick();
+        assertEquals(List.of(1, 2, 3), completed);
+        assertThrows(IllegalArgumentException.class, () -> queue.setBudgetNanos(0));
     }
 
     private TickWorkQueue queue(int maxTasks, long budgetNanos) {

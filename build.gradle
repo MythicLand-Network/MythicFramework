@@ -51,6 +51,7 @@ project(':mythic-framework-core') {
         api 'org.reflections:reflections:0.10.2'
         implementation 'it.unimi.dsi:fastutil:8.5.13'
         implementation 'com.google.code.gson:gson:2.11.0'
+        implementation 'com.belerweb:pinyin4j:2.5.1'
         compileOnly 'org.apache.logging.log4j:log4j-core:2.24.3'
         testImplementation 'org.apache.logging.log4j:log4j-core:2.24.3'
     }

@@ -50,7 +50,7 @@ public abstract class AbstractYamlConfig {
         this.configuredPaths = this.collectConfiguredPaths(this.configuration);
         this.changed = false;
         this.defaultPaths = Set.of();
-        this.backfillMissingDefaults();
+        if (this.synchronizeDefaults()) this.backfillMissingDefaults();
         new ConfigBinder(this.fileName, this.configuration).bind(this);
         this.checkConfig();
         if (!this.defaultPaths.isEmpty()) {
@@ -62,6 +62,10 @@ public abstract class AbstractYamlConfig {
     }
 
     protected abstract void checkConfig();
+
+    protected boolean synchronizeDefaults() {
+        return true;
+    }
 
     protected Set<String> additionalConfigPaths() {
         return Set.of();
