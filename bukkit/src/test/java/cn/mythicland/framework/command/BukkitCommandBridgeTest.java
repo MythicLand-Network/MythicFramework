@@ -24,7 +24,7 @@ final class BukkitCommandBridgeTest {
         bridge.onCommand(sender, mock(Command.class), "membership", new String[0]);
 
         verify(sender).sendMessage("§c你没有权限使用这个命令。");
-        verify(sender, never()).sendMessage("§c用法:/membership set");
+        verify(sender, never()).sendMessage("§c用法: /membership set");
     }
 
     @Test
@@ -40,8 +40,8 @@ final class BukkitCommandBridgeTest {
 
         bridge.onCommand(sender, mock(Command.class), "membership", new String[0]);
 
-        verify(sender).sendMessage("§c用法:/membership info");
-        verify(sender, never()).sendMessage("§c用法:/membership set");
+        verify(sender).sendMessage("§c用法: /membership info");
+        verify(sender, never()).sendMessage("§c用法: /membership set");
         verify(sender, never()).sendMessage("§c你没有权限使用这个命令。");
     }
 

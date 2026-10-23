@@ -67,11 +67,18 @@ project(':mythic-framework-core') {
 
 project(':mythic-framework-bukkit') {
     apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
+    repositories {
+        maven { url = 'https://repo.dmulloy2.net/nexus/repository/public/' }
+    }
     dependencies {
         api project(':mythic-framework-core')
         implementation 'it.unimi.dsi:fastutil:8.5.13'
         compileOnly 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
         compileOnly files(spigot188Jar)
+        compileOnly 'net.dmulloy2:ProtocolLib:5.4.0'
+        compileOnly 'net.luckperms:api:5.4'
+        testImplementation 'net.luckperms:api:5.4'
+        compileOnly 'io.netty:netty-transport:4.1.132.Final'
         testImplementation 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
         testImplementation files(spigot188Jar)
     }
