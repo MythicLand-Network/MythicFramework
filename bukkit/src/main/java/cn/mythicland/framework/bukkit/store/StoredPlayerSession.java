@@ -60,6 +60,10 @@ public final class StoredPlayerSession<P, I> {
         return this.profileRevision;
     }
 
+    public synchronized long inventoryRevision() {
+        return this.inventoryRevision;
+    }
+
     public synchronized void markProfileExists() {
         this.profileExists = true;
     }

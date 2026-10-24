@@ -12,6 +12,13 @@ public final class Cooldowns<K> {
         this.cooldownUntilMillis.put(key, nowMillis + durationMillis);
     }
 
+    public boolean tryStart(K key, long durationMillis, long nowMillis) {
+        if (key == null || durationMillis <= 0L) return false;
+        if (this.remainingMillis(key, nowMillis) > 0L) return false;
+        this.start(key, durationMillis, nowMillis);
+        return true;
+    }
+
     public long remainingMillis(K key, long nowMillis) {
         if (key == null) return 0L;
         long cooldownUntil = this.cooldownUntilMillis.getOrDefault(key, 0L);

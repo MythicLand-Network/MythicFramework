@@ -15,6 +15,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyInt;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -32,6 +35,66 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 final class MenuManagerTest {
+    @Test
+    void refreshOnlyWritesChangedSlotsAndKeepsCurrentButtons() throws ReflectiveOperationException {
+        Player player = mock(Player.class);
+        Inventory inventory = mock(Inventory.class);
+        InventoryView view = mock(InventoryView.class);
+        when(player.getOpenInventory()).thenReturn(view);
+        when(view.getTitle()).thenReturn("test");
+        when(inventory.getSize()).thenReturn(9);
+        ItemStack unchanged = mock(ItemStack.class);
+        ItemStack removed = mock(ItemStack.class);
+        ItemStack added = mock(ItemStack.class);
+        ItemStack[] slots = new ItemStack[9];
+        slots[0] = unchanged;
+        slots[1] = removed;
+        when(inventory.getItem(anyInt())).thenAnswer(call -> slots[call.getArgument(0)]);
+        doAnswer(call -> {
+            slots[call.getArgument(0)] = call.getArgument(1);
+            return null;
+        }).when(inventory).setItem(anyInt(), any());
+        AbstractButton currentButton = mock(AbstractButton.class);
+        when(currentButton.buildDisplayItem(player)).thenReturn(unchanged);
+        AbstractButton addedButton = mock(AbstractButton.class);
+        when(addedButton.buildDisplayItem(player)).thenReturn(added);
+        AbstractMenu menu = new AbstractMenu() {
+            @Override
+            public String buildTitle(Player viewer) {
+                return "test";
+            }
+
+            @Override
+            protected int resolveRowCount(Player viewer) {
+                return 1;
+            }
+
+            @Override
+            protected void populateMenu(Player viewer, Menu contents) {
+                contents.setButton(0, currentButton);
+                contents.setButton(2, addedButton);
+            }
+        };
+        Object holder = newHolder(UUID.randomUUID(), menu, new Menu(9));
+        invoke(holder, "bind", inventory);
+        Class<?> sessionType = Class.forName(MenuManager.class.getName() + "$OpenMenuSession");
+        Constructor<?> constructor = sessionType.getDeclaredConstructor(AbstractMenu.class, holder.getClass(), long.class);
+        constructor.setAccessible(true);
+        Object session = constructor.newInstance(menu, holder, 0L);
+        MenuManager manager = newManager();
+
+        invoke(manager, "refreshInPlace", player, session, false);
+
+        verify(inventory, never()).setItem(0, unchanged);
+        verify(inventory).setItem(1, null);
+        verify(inventory).setItem(2, added);
+        assertSame(currentButton, ((Menu) invoke(holder, "contents")).getButton(0));
+        clearInvocations(inventory);
+        invoke(manager, "refreshInPlace", player, session, false);
+        verify(inventory, never()).setItem(anyInt(), any());
+        verify(player, never()).updateInventory();
+    }
+
     @Test
     void cancelsDragThatOnlyTargetsPlayerInventory() {
         UUID playerUniqueId = UUID.randomUUID();

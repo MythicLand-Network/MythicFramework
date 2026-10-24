@@ -29,7 +29,10 @@ public final class LuckPermsNameStyles {
             String group,
             Supplier<CompletableFuture<PlayerNameStyle>> memberStyle
     ) {
-        return this.luckPerms.getUserManager().loadUser(playerId).thenCompose(user ->
+        User cached = this.luckPerms.getUserManager().getUser(playerId);
+        CompletableFuture<User> loaded = cached == null ? this.luckPerms.getUserManager().loadUser(playerId)
+                : CompletableFuture.completedFuture(cached);
+        return loaded.thenCompose(user ->
                 this.groupStyle(user, user.getQueryOptions(), group)
                         .map(CompletableFuture::completedFuture)
                         .orElseGet(memberStyle));

@@ -1,6 +1,9 @@
 package cn.mythicland.framework.bukkit.diagnostics;
 
 import java.net.URI;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.HashSet;
 import cn.mythicland.framework.diagnostics.DiagnosticIds;
 import cn.mythicland.framework.diagnostics.DiagnosticRecorder;
 import org.bukkit.Bukkit;
@@ -55,16 +58,31 @@ public final class CombatDiagnostics implements AutoCloseable {
     }
 
     public Path start(Collection<? extends Player> players) throws IOException, ReflectiveOperationException {
+        return this.start(players, players, DiagnosticOptions.defaults((int) this.limits.duration().toSeconds()));
+    }
+
+    public Path start(
+            Collection<? extends Player> players,
+            Collection<? extends Player> observers,
+            DiagnosticOptions options
+    ) throws IOException, ReflectiveOperationException {
         if (this.closed) throw new IllegalStateException("Diagnostics are closed");
         if (this.current != null) throw new IllegalStateException("A diagnostic session is active or stopping");
         if (players.isEmpty() || players.size() > 8)
             throw new IllegalArgumentException("Select between 1 and 8 online players");
+        if (observers.isEmpty() || observers.size() > 16)
+            throw new IllegalArgumentException("Select between 1 and 16 online observers");
         if (!Bukkit.getServer().getClass().getPackage().getName().endsWith("v1_8_R3")) {
             throw new IllegalStateException("Combat diagnostics require a Minecraft 1.8.8 v1_8_R3 server");
         }
         Set<UUID> watched = players.stream()
                 .map(Player::getUniqueId)
                 .collect(Collectors.toUnmodifiableSet());
+        Set<UUID> receivers = observers.stream().map(Player::getUniqueId).collect(Collectors.toUnmodifiableSet());
+        DiagnosticRecorder.Limits sessionLimits = new DiagnosticRecorder.Limits(
+                Duration.ofSeconds(Math.min(options.durationSeconds(), this.limits.duration().toSeconds())),
+                this.limits.segmentBytes(), this.limits.sessionBytes(), this.limits.directoryBytes(),
+                this.limits.minimumFreeBytes(), this.limits.queueCapacity());
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("server", Bukkit.getVersion());
         metadata.put("bukkit", Bukkit.getBukkitVersion());
@@ -74,30 +92,30 @@ public final class CombatDiagnostics implements AutoCloseable {
         metadata.put("players", players.stream()
                 .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString()))
                 .toList());
-        metadata.put("durationSeconds", this.limits.duration().toSeconds());
+        metadata.put("observers", observers.stream()
+                .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString())).toList());
+        metadata.put("packets", options.packets());
+        metadata.put("details", options.details());
+        metadata.put("sampleTicks", options.sampleTicks());
+        metadata.put("durationSeconds", sessionLimits.duration().toSeconds());
         metadata.put("segmentBytes", this.limits.segmentBytes());
         metadata.put("sessionBytes", this.limits.sessionBytes());
         metadata.put("directoryBytes", this.limits.directoryBytes());
         metadata.put("minimumFreeBytes", this.limits.minimumFreeBytes());
         metadata.put("correlation", "frameId links synchronous decode only; packetId is diagnostic object identity, not a protocol sequence number");
-        DiagnosticRecorder recorder = new DiagnosticRecorder(this.root, this.limits, metadata);
-        Session session = new Session(recorder, watched);
+        DiagnosticRecorder recorder = new DiagnosticRecorder(this.root, sessionLimits, metadata);
+        Session session = new Session(recorder, watched, receivers, options);
         this.current = session;
         try {
-            session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
-            session.packets = new DiagnosticPackets(this.plugin, recorder, session.ids, watched);
-            session.events = new DiagnosticEvents(
-                    this.plugin,
-                    recorder,
-                    session.ids,
-                    watched,
-                    session.core::packetId,
-                    session.core::damageId
-            );
-            for (Player player : players) {
-                session.packets.connect(player);
-                recorder.record("player.initial", DiagnosticSnapshot.player(player, true));
+            if (options.includes(DiagnosticOptions.Detail.CORE)) session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
+            session.packets = new DiagnosticPackets(this.plugin, recorder, session.ids, players, receivers, options);
+            if (options.includes(DiagnosticOptions.Detail.EVENTS) || options.includes(DiagnosticOptions.Detail.LISTENERS)) {
+                session.events = new DiagnosticEvents(
+                        this.plugin, recorder, session.ids, watched,
+                        () -> session.core == null ? 0 : session.core.packetId(),
+                        () -> session.core == null ? 0 : session.core.damageId(), options);
             }
+            this.captureSnapshots(session, "initial", true);
             session.task = Bukkit.getScheduler().runTaskTimer(this.plugin, () -> this.tick(session), 1, 1);
             this.fingerprint(session);
             recorder.completion().whenComplete((summary, failure) -> {
@@ -119,10 +137,7 @@ public final class CombatDiagnostics implements AutoCloseable {
         if (label.isBlank() || label.length() > 512)
             throw new IllegalArgumentException("Diagnostic marker must contain 1 to 512 characters");
         session.recorder.record("marker", Map.of("actor", actor, "label", label, "tick", DiagnosticSnapshot.tick()));
-        for (UUID uuid : session.watched) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null) session.recorder.record("marker.player", DiagnosticSnapshot.player(player, true));
-        }
+        this.captureSnapshots(session, "marker", true);
     }
 
     public void stop() {
@@ -164,17 +179,19 @@ public final class CombatDiagnostics implements AutoCloseable {
         }
         try {
             long now = System.nanoTime();
-            session.recorder.record("tick", Map.of("tick", DiagnosticSnapshot.tick(), "gapNanos", now - session.lastTick));
-            session.lastTick = now;
-            boolean equipment = session.ticks++ % 20 == 0;
-            if (equipment) session.events.refresh();
-            for (UUID uuid : session.watched) {
-                Player player = Bukkit.getPlayer(uuid);
-                if (player == null) continue;
-                session.packets.connect(player);
-                session.recorder.record("player.tick", DiagnosticSnapshot.player(player, equipment));
+            if (session.options.captures(DiagnosticOptions.PacketGroup.COMBAT)
+                    || session.options.captures(DiagnosticOptions.PacketGroup.MOVEMENT)) {
+                session.recorder.record("tick", Map.of("tick", DiagnosticSnapshot.tick(), "gapNanos", now - session.lastTick));
             }
-            if (equipment) {
+            session.lastTick = now;
+            int tick = session.ticks++;
+            if (tick % 20 == 0 && session.events != null) session.events.refresh();
+            for (UUID uuid : session.connections) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null) session.packets.connect(player);
+            }
+            if (tick % session.options.sampleTicks() == 0) this.captureSnapshots(session, "tick", false);
+            if (tick % 20 == 0 && session.options.includes(DiagnosticOptions.Detail.RUNTIME)) {
                 session.recorder.record("runtime", Map.of(
                         "heapUsed", ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(),
                         "gc", ManagementFactory.getGarbageCollectorMXBeans()
@@ -186,6 +203,32 @@ public final class CombatDiagnostics implements AutoCloseable {
         } catch (ReflectiveOperationException | RuntimeException failure) {
             session.recorder.fail("tick", failure);
             this.finish(session);
+        }
+    }
+
+    private void captureSnapshots(Session session, String phase, boolean force) {
+        List<Player> targets = new ArrayList<>();
+        for (UUID uuid : session.watched) {
+            Player player = Bukkit.getPlayer(uuid);
+            Map<String, Object> snapshot;
+            if (player == null) snapshot = Map.of("uuid", uuid.toString(), "online", false);
+            else {
+                targets.add(player);
+                session.packets.connect(player);
+                snapshot = DiagnosticSnapshot.player(player, session.options);
+            }
+            Map<String, Object> previous = session.playerStates.put(uuid, snapshot);
+            if (force || !snapshot.equals(previous) || session.options.captures(DiagnosticOptions.PacketGroup.COMBAT))
+                session.recorder.record(phase.equals("marker") ? "marker.player" : "player." + phase, snapshot);
+        }
+        for (UUID uuid : session.observers) {
+            Player viewer = Bukkit.getPlayer(uuid);
+            if (viewer == null) continue;
+            session.packets.connect(viewer);
+            Map<String, Object> snapshot = DiagnosticSnapshot.viewer(viewer, targets, session.options);
+            Map<String, Object> previous = session.viewerStates.put(uuid, snapshot);
+            if (snapshot.size() > 1 && (force || !snapshot.equals(previous)))
+                session.recorder.record(phase.equals("marker") ? "marker.viewer" : "viewer." + phase, snapshot);
         }
     }
 
@@ -281,6 +324,11 @@ public final class CombatDiagnostics implements AutoCloseable {
     private static final class Session {
         final DiagnosticRecorder recorder;
         final Set<UUID> watched;
+        final Set<UUID> observers;
+        final Set<UUID> connections;
+        final DiagnosticOptions options;
+        final Map<UUID, Map<String, Object>> playerStates = new HashMap<>();
+        final Map<UUID, Map<String, Object>> viewerStates = new HashMap<>();
         final DiagnosticIds ids;
         final ExecutorService hashes = Executors.newSingleThreadExecutor(task -> {
             Thread thread = new Thread(task, "diagnostic-artifact-hashes");
@@ -296,9 +344,13 @@ public final class CombatDiagnostics implements AutoCloseable {
         int ticks;
         boolean cleaning;
 
-        Session(DiagnosticRecorder recorder, Set<UUID> watched) {
+        Session(DiagnosticRecorder recorder, Set<UUID> watched, Set<UUID> observers, DiagnosticOptions options) {
             this.recorder = recorder;
             this.watched = watched;
+            this.observers = observers;
+            this.connections = new HashSet<>(watched);
+            this.connections.addAll(observers);
+            this.options = options;
             this.ids = new DiagnosticIds(recorder::nextId);
         }
     }

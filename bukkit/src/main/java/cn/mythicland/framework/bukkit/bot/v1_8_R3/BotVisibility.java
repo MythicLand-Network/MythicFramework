@@ -3,7 +3,6 @@ package cn.mythicland.framework.bukkit.bot.v1_8_R3;
 import cn.mythicland.framework.task.StaggeredDeadline;
 import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.Bukkit;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
@@ -164,6 +163,8 @@ public class BotVisibility {
         private final PacketPlayOutEntityMetadata metadata;
         private PacketPlayOutEntityHeadRotation rotation;
         private PacketPlayOutEntityStatus hurt;
+        private ItemStack[] equipment;
+        private PacketPlayOutEntityEquipment[] equipmentPackets;
 
         private Update(
                 EntityPlayer bot,
@@ -202,14 +203,11 @@ public class BotVisibility {
                 display.nameplate = plateMovement;
                 display.lastTeleportTick = tick;
                 if (hasEquipment) {
+                    ItemStack[] snapshot = equipment();
                     for (int slot = 0; slot < 5; slot++) {
-                        if (bot.getEquipment(slot) != null)
-                            send(player, new PacketPlayOutEntityEquipment(bot.getId(), slot, bot.getEquipment(slot)));
+                        if (snapshot[slot] != null) send(player, equipmentPacket(slot));
                     }
-                    display.armor = Arrays.stream(bot.getBukkitEntity().getInventory().getArmorContents())
-                            .map(item -> item == null ? null : item.clone()).toArray(ItemStack[]::new);
-                    ItemStack hand = bot.getBukkitEntity().getItemInHand();
-                    display.hand = hand == null ? null : hand.clone();
+                    display.equipment = snapshot;
                     display.nextEquipmentCheck =
                             StaggeredDeadline.after(tick, -bot.getId(), config.equipmentCheckTicks());
                 }
@@ -240,25 +238,38 @@ public class BotVisibility {
             }
             if (hasEquipment && tick >= display.nextEquipmentCheck) {
                 display.nextEquipmentCheck = StaggeredDeadline.after(tick, -bot.getId(), config.equipmentCheckTicks());
-                ItemStack[] equipment = bot.getBukkitEntity().getInventory().getArmorContents();
-                ItemStack hand = bot.getBukkitEntity().getItemInHand();
-                if (!Arrays.equals(display.armor, equipment) || !Objects.equals(display.hand, hand)) {
-                    if (!Objects.equals(display.hand, hand))
-                        send(player, new PacketPlayOutEntityEquipment(bot.getId(), 0, bot.getEquipment(0)));
-                    for (int slot = 0; slot < equipment.length; slot++) {
-                        if (!Objects.equals(display.armor[slot], equipment[slot]))
-                            send(player, new PacketPlayOutEntityEquipment(bot.getId(), slot + 1, bot.getEquipment(slot + 1)));
-                    }
-                    display.armor = Arrays.stream(equipment).map(item -> item == null ? null : item.clone())
-                            .toArray(ItemStack[]::new);
-                    display.hand = hand == null ? null : hand.clone();
+                boolean changed = false;
+                for (int slot = 0; slot < 5; slot++) {
+                    ItemStack current = equipment == null ? bot.getEquipment(slot) : equipment[slot];
+                    if (ItemStack.matches(display.equipment == null ? null : display.equipment[slot], current))
+                        continue;
+                    send(player, equipmentPacket(slot));
+                    changed = true;
                 }
+                if (changed) display.equipment = equipment();
             }
             if (bot.hurtTicks > display.hurtTicks) {
                 if (hurt == null) hurt = new PacketPlayOutEntityStatus(bot, (byte) 2);
                 send(player, hurt);
             }
             display.hurtTicks = bot.hurtTicks;
+        }
+
+        private ItemStack[] equipment() {
+            if (equipment != null) return equipment;
+            equipment = new ItemStack[5];
+            for (int slot = 0; slot < equipment.length; slot++) {
+                ItemStack item = bot.getEquipment(slot);
+                equipment[slot] = item == null ? null : item.cloneItemStack();
+            }
+            return equipment;
+        }
+
+        private PacketPlayOutEntityEquipment equipmentPacket(int slot) {
+            if (equipmentPackets == null) equipmentPackets = new PacketPlayOutEntityEquipment[5];
+            if (equipmentPackets[slot] == null)
+                equipmentPackets[slot] = new PacketPlayOutEntityEquipment(bot.getId(), slot, equipment()[slot]);
+            return equipmentPackets[slot];
         }
     }
 
@@ -399,8 +410,7 @@ public class BotVisibility {
         private String team;
         private Movement location, nameplate;
         private long lastTeleportTick;
-        private ItemStack[] armor;
-        private ItemStack hand;
+        private ItemStack[] equipment;
         private int hurtTicks;
         private long nextEquipmentCheck;
         private long profileRemoveAt;

@@ -9,6 +9,7 @@ import cn.mythicland.framework.component.InjectComponent;
 import cn.mythicland.framework.component.ManagedLifecycle;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -28,6 +29,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.PluginDisableEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @InjectComponent
@@ -78,7 +80,7 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         if (player == null) return;
         this.taskScheduler.executeSyncIfNeeded(() -> {
             OpenMenuSession session = this.openMenus.get(player.getUniqueId());
-            if (session != null) this.refreshInPlace(player, session, false, false);
+            if (session != null) this.refreshInPlace(player, session, false);
         });
     }
 
@@ -128,14 +130,14 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         if (rawSlot >= interaction.topInventory().getSize()) {
             if (holder.menu() instanceof PlayerInventoryMenuHandler inventoryHandler
                     && inventoryHandler.handlePlayerInventoryClick(player, event, this)) {
-                this.refreshIfCurrent(player, holder, true);
+                this.refreshIfCurrent(player, holder);
             }
             return;
         }
         AbstractButton button = holder.contents().getButton(rawSlot);
         if (button == null) {
             if (holder.menu().shouldRefreshOnEmptySlotClick(player, rawSlot, clickType)) {
-                this.refreshIfCurrent(player, holder, true);
+                this.refreshIfCurrent(player, holder);
             }
             return;
         }
@@ -145,7 +147,7 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         if (button.shouldClose(player, clickType)) {
             this.closeNextTick(player);
         } else if (button.shouldRefresh(player, clickType)) {
-            this.refreshInPlace(player, session, true, false);
+            this.refreshInPlace(player, session, false);
         }
     }
 
@@ -215,7 +217,7 @@ public final class MenuManager implements Listener, ManagedLifecycle {
             if (this.findMenuHolder(player.getOpenInventory().getTopInventory(), player.getUniqueId())
                     != session.holder()) continue;
             session.lastRefreshTick(this.tickCounter);
-            this.refreshInPlace(player, session, false, true);
+            this.refreshInPlace(player, session, true);
         }
     }
 
@@ -318,24 +320,23 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         return new MenuInteraction(player, topInventory, holder);
     }
 
-    private void refreshIfCurrent(Player player, MenuHolder expectedHolder, boolean forceInventorySync) {
+    private void refreshIfCurrent(Player player, MenuHolder expectedHolder) {
         OpenMenuSession session = this.openMenus.get(player.getUniqueId());
         if (session != null && session.holder() == expectedHolder) {
-            this.refreshInPlace(player, session, forceInventorySync, false);
+            this.refreshInPlace(player, session, false);
         }
     }
 
     private void refreshInPlace(
             Player player,
             OpenMenuSession session,
-            boolean forceInventorySync,
             boolean allowIncrementalRefresh
     ) {
         AbstractMenu menu = session.menu();
         MenuHolder holder = session.holder();
         Inventory inventory = holder.getInventory();
         if (inventory == null) return;
-        if (allowIncrementalRefresh && !forceInventorySync && menu instanceof AutoRefreshMenu autoRefreshMenu
+        if (allowIncrementalRefresh && menu instanceof AutoRefreshMenu autoRefreshMenu
                 && autoRefreshMenu.refreshInPlace(player, inventory, holder.contents())) {
             if (autoRefreshMenu.shouldForceInventorySync(player)) player.updateInventory();
             return;
@@ -349,9 +350,10 @@ public final class MenuManager implements Listener, ManagedLifecycle {
         holder.replaceContents(rebuilt);
         for (int slot = 0; slot < rebuilt.getSize(); slot++) {
             AbstractButton button = rebuilt.getButtons().get(slot);
-            inventory.setItem(slot, button == null ? null : button.buildDisplayItem(player));
+            ItemStack item = button == null ? null : button.buildDisplayItem(player);
+            if (!Objects.equals(inventory.getItem(slot), item)) inventory.setItem(slot, item);
         }
-        if (forceInventorySync || menu instanceof AutoRefreshMenu autoRefreshMenu
+        if (menu instanceof AutoRefreshMenu autoRefreshMenu
                 && autoRefreshMenu.shouldForceInventorySync(player)) player.updateInventory();
     }
 

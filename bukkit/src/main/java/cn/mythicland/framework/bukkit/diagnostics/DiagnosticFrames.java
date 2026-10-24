@@ -9,19 +9,19 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 final class DiagnosticFrames extends ChannelInboundHandlerAdapter {
-    private static final Set<Integer> INBOUND_IDS = Set.of(0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 19);
     private final DiagnosticRecorder recorder;
     private final UUID uuid;
     private final ThreadLocal<Long> frame;
+    private final DiagnosticOptions options;
 
-    DiagnosticFrames(DiagnosticRecorder recorder, UUID uuid, ThreadLocal<Long> frame) {
+    DiagnosticFrames(DiagnosticRecorder recorder, UUID uuid, ThreadLocal<Long> frame, DiagnosticOptions options) {
         this.recorder = recorder;
         this.uuid = uuid;
         this.frame = frame;
+        this.options = options;
     }
 
     @Override
@@ -31,7 +31,7 @@ final class DiagnosticFrames extends ChannelInboundHandlerAdapter {
             if (recorder.isRecording() && message instanceof ByteBuf buffer) {
                 int[] cursor = {buffer.readerIndex()};
                 int type = varInt(buffer, cursor);
-                if (INBOUND_IDS.contains(type)) {
+                if (this.options.frame(type)) {
                     long id = recorder.nextId();
                     frame.set(id);
                     Map<String, Object> fields = base(this.uuid, context.channel());

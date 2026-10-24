@@ -23,6 +23,7 @@ import java.util.function.LongSupplier;
 
 final class DiagnosticEvents implements AutoCloseable {
     private final DiagnosticRecorder recorder;
+    private final DiagnosticOptions options;
     private final DiagnosticIds ids;
     private final Set<UUID> watched;
     private final LongSupplier packetId;
@@ -41,9 +42,11 @@ final class DiagnosticEvents implements AutoCloseable {
             DiagnosticIds ids,
             Set<UUID> watched,
             LongSupplier packetId,
-            LongSupplier damageId
+            LongSupplier damageId,
+            DiagnosticOptions options
     ) throws ReflectiveOperationException {
         this.recorder = recorder;
+        this.options = options;
         this.ids = ids;
         this.watched = watched;
         this.packetId = packetId;
@@ -60,6 +63,8 @@ final class DiagnosticEvents implements AutoCloseable {
                     "org.bukkit.event.entity.EntityShootBowEvent", "org.bukkit.event.entity.ProjectileLaunchEvent",
                     "org.bukkit.event.entity.ProjectileHitEvent", "org.bukkit.event.entity.EntityDeathEvent",
                     "org.bukkit.event.player.PlayerRespawnEvent", "org.bukkit.event.entity.EntityRegainHealthEvent",
+                    "org.bukkit.event.inventory.InventoryClickEvent", "org.bukkit.event.inventory.InventoryDragEvent",
+                    "org.bukkit.event.player.PlayerItemBreakEvent", "org.bukkit.event.player.PlayerChangedWorldEvent",
                     "io.papermc.paper.event.player.PrePlayerAttackEntityEvent"
             }) {
                 Class<? extends Event> type;
@@ -70,9 +75,10 @@ final class DiagnosticEvents implements AutoCloseable {
                     this.recorder.record("capability", Map.of("event", name, "available", false));
                     continue;
                 }
+                if (!options.event(type.getSimpleName())) continue;
                 for (EventPriority priority : new EventPriority[]{EventPriority.LOWEST, EventPriority.MONITOR}) {
-                    Bukkit.getPluginManager().registerEvent(type, this.boundary, priority, (listener, event) -> {
-                    }, owner, false);
+                    Bukkit.getPluginManager().registerEvent(type, this.boundary, priority,
+                            (listener, event) -> this.captureBoundary(event, priority), owner, false);
                 }
             }
             this.refresh();
@@ -87,7 +93,7 @@ final class DiagnosticEvents implements AutoCloseable {
     }
 
     void refresh() throws IllegalAccessException {
-        if (this.closed) return;
+        if (this.closed || !this.options.includes(DiagnosticOptions.Detail.LISTENERS)) return;
         for (HandlerList handlers : HandlerList.getHandlerLists()) {
             for (RegisteredListener registration : handlers.getRegisteredListeners()) {
                 Binding old = this.bindings.get(registration);
@@ -108,7 +114,7 @@ final class DiagnosticEvents implements AutoCloseable {
     }
 
     private void execute(RegisteredListener registration, EventExecutor original, Listener listener, Event event) throws EventException {
-        if (this.closed || !this.recorder.isRecording() || event.isAsynchronous() || !eligible(event)) {
+        if (this.closed || !this.recorder.isRecording() || event.isAsynchronous() || !this.options.event(event.getClass().getSimpleName())) {
             original.execute(listener, event);
             return;
         }
@@ -135,7 +141,7 @@ final class DiagnosticEvents implements AutoCloseable {
                 state = new State(this.ids.id(event));
                 this.states.put(event, state);
             }
-            before = DiagnosticSnapshot.event(event);
+            before = DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT));
             if (!before.equals(state.last)) {
                 this.recorder.record("event.state", Map.of("eventId", state.id, "phase", "before", "state", before,
                         "packetId", this.packetId.getAsLong(), "parentId", previousParent));
@@ -169,7 +175,7 @@ final class DiagnosticEvents implements AutoCloseable {
             throw failure;
         } finally {
             try {
-                Map<String, Object> after = DiagnosticSnapshot.event(event);
+                Map<String, Object> after = DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT));
                 if (!after.equals(before)) {
                     this.recorder.record("event.state", Map.of("eventId", state.id, "phase", "after", "state", after,
                             "invocationId", invocation, "packetId", this.packetId.getAsLong()));
@@ -191,16 +197,18 @@ final class DiagnosticEvents implements AutoCloseable {
         }
     }
 
-    private static boolean eligible(Event event) {
-        String name = event.getClass().getSimpleName();
-        return name.contains("Damage") || name.contains("Attack") || name.contains("Combat")
-                || name.contains("Velocity") || name.contains("Projectile") || name.contains("Bow")
-                || name.contains("Death") || name.contains("Resurrect") || name.contains("Heal")
-                || name.contains("Hit") || name.contains("Melee") || name.contains("Strike")
-                || name.equals("PlayerMoveEvent") || name.contains("Teleport") || name.equals("PlayerAnimationEvent")
-                || name.equals("PlayerItemHeldEvent") || name.equals("PlayerInteractEvent")
-                || name.contains("Sprint") || name.contains("Sneak") || name.equals("PlayerJoinEvent")
-                || name.equals("PlayerQuitEvent") || name.equals("PlayerRespawnEvent");
+    private void captureBoundary(Event event, EventPriority priority) {
+        if (this.options.includes(DiagnosticOptions.Detail.LISTENERS) || this.closed || !this.recorder.isRecording()
+                || event.isAsynchronous() || !this.options.event(event.getClass().getSimpleName())) return;
+        try {
+            if (!DiagnosticSnapshot.containsPlayer(event, this.watched)) return;
+            this.recorder.record("event.state", Map.of(
+                    "eventId", this.ids.id(event), "phase", priority.name(),
+                    "state", DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT)),
+                    "packetId", this.packetId.getAsLong(), "damageId", this.damageId.getAsLong()));
+        } catch (RuntimeException failure) {
+            this.recorder.fail("event.boundary", failure);
+        }
     }
 
     @Override

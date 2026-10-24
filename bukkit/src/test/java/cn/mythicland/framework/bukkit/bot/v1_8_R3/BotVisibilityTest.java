@@ -352,6 +352,47 @@ class BotVisibilityTest {
                     .allMatch(viewer -> visibility.isVisible(viewer.getUniqueId(), botId)));
             visibility.destroy(bot);
             visibility.clear();
+            settings = new Settings(32, 30, 128, 0, 70, 10, 2, 0, 1);
+            ItemStack hand = new ItemStack(Items.DIAMOND_SWORD);
+            hand.setTag(new NBTTagCompound());
+            hand.getTag().setString("state", "initial");
+            when(bot.getEquipment(0)).thenReturn(hand);
+            when(bot.getEquipment(2)).thenReturn(new ItemStack(Items.LEATHER_LEGGINGS));
+            sent.forEach(List::clear);
+            visibility.activity(viewers, 2030);
+            visibility.update(bot, viewers, 2030, null, Set.of(), settings, null, true);
+            visibility.flush(2030);
+            List<Packet<?>> firstEquipment = sent.getFirst().stream()
+                    .filter(PacketPlayOutEntityEquipment.class::isInstance).toList();
+            List<Packet<?>> secondEquipment = sent.getLast().stream()
+                    .filter(PacketPlayOutEntityEquipment.class::isInstance).toList();
+            assertEquals(2, firstEquipment.size());
+            assertSame(firstEquipment.getFirst(), secondEquipment.getFirst());
+            assertSame(firstEquipment.getLast(), secondEquipment.getLast());
+            byte[] initialHand = payload(firstEquipment.getFirst());
+            sent.forEach(List::clear);
+            visibility.update(bot, viewers, 2031, null, Set.of(), settings, null, true);
+            assertTrue(sent.stream().flatMap(List::stream).noneMatch(PacketPlayOutEntityEquipment.class::isInstance));
+            hand.getTag().setString("state", "changed");
+            visibility.update(bot, viewers, 2032, null, Set.of(), settings, null, true);
+            for (List<Packet<?>> packets : sent)
+                assertEquals(1, packets.stream().filter(PacketPlayOutEntityEquipment.class::isInstance).count());
+            Packet<?> changedHand = sent.getFirst().stream()
+                    .filter(PacketPlayOutEntityEquipment.class::isInstance).findFirst().orElseThrow();
+            assertSame(changedHand, sent.getLast().stream()
+                    .filter(PacketPlayOutEntityEquipment.class::isInstance).findFirst().orElseThrow());
+            assertArrayEquals(initialHand, payload(firstEquipment.getFirst()));
+            assertFalse(Arrays.equals(initialHand, payload(changedHand)));
+            sent.forEach(List::clear);
+            when(bot.getEquipment(2)).thenReturn(null);
+            visibility.update(bot, viewers, 2033, null, Set.of(), settings, null, true);
+            for (List<Packet<?>> packets : sent) {
+                List<Packet<?>> changes = packets.stream().filter(PacketPlayOutEntityEquipment.class::isInstance).toList();
+                assertEquals(1, changes.size());
+                assertArrayEquals(new byte[]{42, 0, 2, -1, -1}, payload(changes.getFirst()));
+            }
+            visibility.destroy(bot);
+            visibility.clear();
         }
     }
 

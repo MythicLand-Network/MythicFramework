@@ -27,7 +27,7 @@ class DiagnosticFramesTest {
         DiagnosticRecorder recorder = this.recorder();
         ThreadLocal<Long> frame = ThreadLocal.withInitial(() -> 0L);
         AtomicLong observed = new AtomicLong();
-        EmbeddedChannel channel = new EmbeddedChannel(new DiagnosticFrames(recorder, UUID.randomUUID(), frame),
+        EmbeddedChannel channel = new EmbeddedChannel(new DiagnosticFrames(recorder, UUID.randomUUID(), frame, DiagnosticOptions.defaults(1800)),
                 new ChannelInboundHandlerAdapter() {
                     @Override
                     public void channelRead(ChannelHandlerContext context, Object message) {
@@ -52,7 +52,7 @@ class DiagnosticFramesTest {
     void malformedFrame_shouldStopCaptureButStillForwardOriginalMessageOnce() throws Exception {
         DiagnosticRecorder recorder = this.recorder();
         EmbeddedChannel channel = new EmbeddedChannel(new DiagnosticFrames(recorder, UUID.randomUUID(),
-                ThreadLocal.withInitial(() -> 0L)));
+                ThreadLocal.withInitial(() -> 0L), DiagnosticOptions.defaults(1800)));
         ByteBuf buffer = Unpooled.wrappedBuffer(new byte[]{2, (byte) 128});
         assertTrue(channel.writeInbound(buffer));
         assertSame(buffer, channel.readInbound());

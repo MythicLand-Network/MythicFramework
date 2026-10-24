@@ -3,8 +3,24 @@ package cn.mythicland.framework.cooldown;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CooldownsTest {
+    @Test
+    void tryStart_shouldPreserveActiveDeadlineAndAllowExactExpiry() {
+        Cooldowns<String> cooldowns = new Cooldowns<>();
+        assertTrue(cooldowns.tryStart("attack", 100, 1000));
+        assertFalse(cooldowns.tryStart("attack", 500, 1050));
+        assertEquals(50, cooldowns.remainingMillis("attack", 1050));
+        assertTrue(cooldowns.tryStart("heal", 200, 1050));
+        assertTrue(cooldowns.tryStart("attack", 100, 1100));
+        assertEquals(100, cooldowns.remainingMillis("attack", 1100));
+        assertFalse(cooldowns.tryStart(null, 100, 1100));
+        assertFalse(cooldowns.tryStart("invalid", 0, 1100));
+        assertEquals(2, cooldowns.size());
+    }
+
     @Test
     void expiryAndReduction_shouldRemoveOnlyExpiredEntries() {
         Cooldowns<String> cooldowns = new Cooldowns<>();

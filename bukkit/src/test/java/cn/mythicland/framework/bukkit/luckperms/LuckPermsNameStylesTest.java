@@ -68,6 +68,29 @@ class LuckPermsNameStylesTest {
                 () -> CompletableFuture.completedFuture(member)).join());
     }
 
+    @Test
+    void loadedUserLookupDoesNotReloadPermissions() {
+        UUID playerId = UUID.randomUUID();
+        UserManager users = mock(UserManager.class);
+        when(this.api.getUserManager()).thenReturn(users);
+        when(users.getUser(playerId)).thenReturn(this.user);
+        when(this.user.getQueryOptions()).thenReturn(this.options);
+        this.staffPrefix("&4[服主]");
+
+        PlayerNameStyle result = this.styles.lookup(playerId, "staff", () -> {
+            fail("Staff style must not load membership data");
+            return null;
+        }).join();
+
+        assertEquals("&4Steve", result.coloredName("Steve"));
+        verify(users, never()).loadUser(any(UUID.class));
+        when(this.user.getInheritedGroups(this.options)).thenReturn(List.of());
+        PlayerNameStyle member = new PlayerNameStyle("&b[MVP]");
+        assertSame(member, this.styles.lookup(playerId, "staff",
+                () -> CompletableFuture.completedFuture(member)).join());
+        verify(users, never()).loadUser(any(UUID.class));
+    }
+
     private void staffPrefix(String prefix) {
         Group staff = mock(Group.class);
         when(staff.getName()).thenReturn("staff");

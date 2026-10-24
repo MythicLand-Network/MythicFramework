@@ -55,7 +55,7 @@ class DiagnosticEventsTest {
         DiagnosticRecorder recorder = this.recorder();
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
-            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(UUID.randomUUID()), () -> 0, () -> 0);
+            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(UUID.randomUUID()), () -> 0, () -> 0, listenerOptions());
             try {
                 assertSame(originalFailure, assertThrows(IllegalStateException.class,
                         () -> registration.callEvent(new CombatDiagnosticEvent(UUID.randomUUID()))));
@@ -87,7 +87,7 @@ class DiagnosticEventsTest {
         DiagnosticRecorder recorder = this.recorder();
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
-            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(selected), () -> 17, () -> 19);
+            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(selected), () -> 17, () -> 19, listenerOptions());
             try {
                 CombatDiagnosticEvent event = new CombatDiagnosticEvent(selected);
                 registration.callEvent(event);
@@ -116,6 +116,11 @@ class DiagnosticEventsTest {
             }
             assertTrue(cancelledState, "Listener cancellation must be present in the recorded event state");
         }
+    }
+
+    private static DiagnosticOptions listenerOptions() {
+        return new DiagnosticOptions(Set.of(DiagnosticOptions.PacketGroup.COMBAT),
+                Set.of(DiagnosticOptions.Detail.LISTENERS), 1800, 1);
     }
 
     private DiagnosticRecorder recorder() throws Exception {

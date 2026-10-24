@@ -2,12 +2,14 @@ package cn.mythicland.framework.bukkit.diagnostics;
 
 import java.lang.reflect.Array;
 import net.minecraft.server.v1_8_R3.EntityPlayer;
+import net.minecraft.server.v1_8_R3.DataWatcher;
 import net.minecraft.server.v1_8_R3.GenericAttributes;
 import net.minecraft.server.v1_8_R3.MinecraftServer;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
 import org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack;
+import org.bukkit.craftbukkit.v1_8_R3.util.CraftMagicNumbers;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -16,11 +18,13 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.util.Vector;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,6 +42,61 @@ final class DiagnosticSnapshot {
 
     static Map<String, Object> player(Player player, boolean equipment) {
         return player(player, equipment, new int[]{512, 8192});
+    }
+
+    static Map<String, Object> player(Player player, DiagnosticOptions options) {
+        int[] remaining = {512, 8192, options.includes(DiagnosticOptions.Detail.NBT) ? 1 : 0};
+        if (options.captures(DiagnosticOptions.PacketGroup.COMBAT)) return player(player, true, remaining);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("uuid", player.getUniqueId().toString());
+        out.put("name", player.getName());
+        out.put("entityId", player.getEntityId());
+        out.put("world", player.getWorld().getUID().toString());
+        if (options.captures(DiagnosticOptions.PacketGroup.MOVEMENT)
+                || options.captures(DiagnosticOptions.PacketGroup.VISIBILITY)) {
+            out.put("position", location(player.getLocation()));
+            out.put("velocity", vector(player.getVelocity()));
+            out.put("onGround", player.isOnGround());
+            out.put("sprint", player.isSprinting());
+            out.put("sneak", player.isSneaking());
+        }
+        if (options.captures(DiagnosticOptions.PacketGroup.HEALTH)) {
+            out.put("health", player.getHealth());
+            out.put("maxHealth", player.getMaxHealth());
+            out.put("absorption", ((CraftPlayer) player).getHandle().getAbsorptionHearts());
+            out.put("dead", player.isDead());
+        }
+        if (options.captures(DiagnosticOptions.PacketGroup.EQUIPMENT)) {
+            out.put("slot", player.getInventory().getHeldItemSlot());
+            out.put("hand", value(player.getItemInHand(), 0, new IdentityHashMap<>(), remaining));
+            out.put("armor", value(player.getInventory().getArmorContents(), 0, new IdentityHashMap<>(), remaining));
+        }
+        if (options.captures(DiagnosticOptions.PacketGroup.LATENCY)) out.put("ping", ((CraftPlayer) player).getHandle().ping);
+        return out;
+    }
+
+    static Map<String, Object> viewer(Player viewer, Collection<? extends Player> targets, DiagnosticOptions options) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("uuid", viewer.getUniqueId().toString());
+        if (options.captures(DiagnosticOptions.PacketGroup.HEALTH)) {
+            var objective = viewer.getScoreboard().getObjective(DisplaySlot.BELOW_NAME);
+            if (objective == null) out.put("belowName", null);
+            else {
+                Map<String, Object> scores = new LinkedHashMap<>();
+                for (Player target : targets) {
+                    var score = objective.getScore(target.getName());
+                    scores.put(target.getName(), score.isScoreSet() ? score.getScore() : null);
+                }
+                out.put("belowName", Map.of("objective", objective.getName(), "displayName", objective.getDisplayName(), "scores", scores));
+            }
+        }
+        if (options.captures(DiagnosticOptions.PacketGroup.VISIBILITY)
+                || options.captures(DiagnosticOptions.PacketGroup.EQUIPMENT)) {
+            Map<String, Object> visibility = new LinkedHashMap<>();
+            for (Player target : targets) visibility.put(target.getName(), viewer.canSee(target));
+            out.put("canSee", visibility);
+        }
+        return out;
     }
 
     private static Map<String, Object> player(Player player, boolean equipment, int[] remaining) {
@@ -99,6 +158,10 @@ final class DiagnosticSnapshot {
     }
 
     static Map<String, Object> event(Event event) {
+        return event(event, true);
+    }
+
+    static Map<String, Object> event(Event event, boolean nbt) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("class", event.getClass().getName());
         out.put("asynchronous", event.isAsynchronous());
@@ -114,7 +177,30 @@ final class DiagnosticSnapshot {
             }
             out.put("modifiers", modifiers);
         }
-        out.put("fields", value(event));
+        out.put("fields", value(event, 0, new IdentityHashMap<>(), new int[]{512, 8192, nbt ? 1 : 0}));
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> packet(Object packet, boolean nbt) {
+        return (Map<String, Object>) value(packet, 0, new IdentityHashMap<>(), new int[]{512, 8192, nbt ? 1 : 0});
+    }
+
+    static Map<String, Object> item(net.minecraft.server.v1_8_R3.ItemStack item, boolean nbt) {
+        return item(item, new int[]{512, 8192, nbt ? 1 : 0});
+    }
+
+    private static Map<String, Object> item(net.minecraft.server.v1_8_R3.ItemStack item, int[] remaining) {
+        if (item == null) return Map.of("type", "AIR");
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("type", CraftMagicNumbers.getMaterial(item.getItem()).name());
+        out.put("amount", item.count);
+        out.put("damage", item.getData());
+        if (remaining.length == 2 || remaining[2] != 0) {
+            NBTTagCompound tag = new NBTTagCompound();
+            item.save(tag);
+            out.put("nbt", limited(tag.toString(), remaining));
+        }
         return out;
     }
 
@@ -132,6 +218,15 @@ final class DiagnosticSnapshot {
         try {
             if (object instanceof Location location) return location(location);
             if (object instanceof Vector vector) return vector(vector);
+            if (object instanceof net.minecraft.server.v1_8_R3.ItemStack item) return item(item, remaining);
+            if (object instanceof DataWatcher watcher) return value(watcher.c(), depth + 1, seen, remaining);
+            if (object instanceof DataWatcher.WatchableObject watched) {
+                Map<String, Object> out = new LinkedHashMap<>();
+                out.put("index", watched.a());
+                out.put("type", watched.c());
+                out.put("value", value(watched.b(), depth + 1, seen, remaining));
+                return out;
+            }
             if (object instanceof Entity entity) {
                 Map<String, Object> out = new LinkedHashMap<>();
                 out.put("uuid", entity.getUniqueId().toString());
@@ -154,11 +249,7 @@ final class DiagnosticSnapshot {
                 return out;
             }
             if (object instanceof ItemStack item) {
-                NBTTagCompound tag = new NBTTagCompound();
-                var nativeItem = CraftItemStack.asNMSCopy(item);
-                if (nativeItem == null) return Map.of("type", "AIR");
-                nativeItem.save(tag);
-                return Map.of("type", item.getType().name(), "amount", item.getAmount(), "nbt", limited(tag.toString(), remaining));
+                return item(CraftItemStack.asNMSCopy(item), remaining);
             }
             if (object instanceof Map<?, ?> map) {
                 Map<String, Object> out = new LinkedHashMap<>();

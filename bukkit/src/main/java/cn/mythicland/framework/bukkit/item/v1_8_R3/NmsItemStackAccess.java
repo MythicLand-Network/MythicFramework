@@ -13,6 +13,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.Objects;
 
 public final class NmsItemStackAccess {
     private static final Field CRAFT_HANDLE = craftHandle();
@@ -37,6 +38,13 @@ public final class NmsItemStackAccess {
         } catch (IllegalAccessException exception) {
             throw new IllegalStateException("Unable to read item state", exception);
         }
+    }
+
+    public static boolean matches(ItemStack first, ItemStack second) {
+        if (first == second) return true;
+        if (first instanceof CraftItemStack && second instanceof CraftItemStack)
+            return net.minecraft.server.v1_8_R3.ItemStack.matches(read(first), read(second));
+        return Objects.equals(first, second);
     }
 
     public static void write(NBTTagCompound tag, DataOutput output, boolean canonical) throws IOException {
