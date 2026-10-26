@@ -75,7 +75,7 @@ final class DiagnosticPackets implements AutoCloseable {
         if (!options.includes(DiagnosticOptions.Detail.PROTOCOL)) return;
         try {
             for (ListenerPriority priority : new ListenerPriority[]{ListenerPriority.LOWEST, ListenerPriority.MONITOR}) {
-                PacketAdapter listener = new PacketAdapter(plugin, priority, TYPES) {
+                PacketAdapter listener = new PacketAdapter(PacketAdapter.params(plugin, TYPES).listenerPriority(priority).optionAsync()) {
                     @Override
                     public void onPacketReceiving(PacketEvent event) {
                         capture(event, "receive", priority);
@@ -124,6 +124,8 @@ final class DiagnosticPackets implements AutoCloseable {
                         context.fireChannelRead(message);
                     }
                 });
+                DiagnosticWire wire = observers.contains(uuid) ? new DiagnosticWire(recorder, uuid, channel.toString(), selection, options) : null;
+                if (wire != null) wire.position(pipeline, this.prefix + "-wire");
                 pipeline.addBefore("packet_handler", this.prefix + "-dispatch", new ChannelDuplexHandler() {
                     @Override
                     public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
@@ -135,6 +137,7 @@ final class DiagnosticPackets implements AutoCloseable {
                     public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) throws Exception {
                         if (!closed && recorder.isRecording()) {
                             try {
+                                if (wire != null) wire.position(context.pipeline(), prefix + "-wire");
                                 if (observers.contains(uuid) && selection.relevant(uuid, message, true)) {
                                     long id = ids.id(message);
                                     long transmission = recorder.nextId();
@@ -228,7 +231,7 @@ final class DiagnosticPackets implements AutoCloseable {
         CompletableFuture<Void> done = new CompletableFuture<>();
         Runnable remove = () -> {
             try {
-                for (String suffix : List.of("-frame", "-decoded", "-dispatch")) {
+                for (String suffix : List.of("-frame", "-decoded", "-dispatch", "-wire")) {
                     if (channel.pipeline().get(this.prefix + suffix) != null)
                         channel.pipeline().remove(this.prefix + suffix);
                 }

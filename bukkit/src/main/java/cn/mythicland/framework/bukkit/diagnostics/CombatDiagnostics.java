@@ -36,6 +36,7 @@ public final class CombatDiagnostics implements AutoCloseable {
     public record Status(
             boolean recording,
             boolean stopping,
+            boolean buffering,
             Path directory,
             long records,
             long bytes,
@@ -65,6 +66,24 @@ public final class CombatDiagnostics implements AutoCloseable {
             Collection<? extends Player> players,
             Collection<? extends Player> observers,
             DiagnosticOptions options
+    ) throws IOException, ReflectiveOperationException {
+        return this.start(players, observers, options, null);
+    }
+
+    public Path watch(
+            Collection<? extends Player> players,
+            Collection<? extends Player> observers,
+            DiagnosticOptions options,
+            DiagnosticRecorder.History history
+    ) throws IOException, ReflectiveOperationException {
+        return this.start(players, observers, options, history);
+    }
+
+    private Path start(
+            Collection<? extends Player> players,
+            Collection<? extends Player> observers,
+            DiagnosticOptions options,
+            DiagnosticRecorder.History history
     ) throws IOException, ReflectiveOperationException {
         if (this.closed) throw new IllegalStateException("Diagnostics are closed");
         if (this.current != null) throw new IllegalStateException("A diagnostic session is active or stopping");
@@ -97,14 +116,18 @@ public final class CombatDiagnostics implements AutoCloseable {
         metadata.put("packets", options.packets());
         metadata.put("details", options.details());
         metadata.put("sampleTicks", options.sampleTicks());
+        if (history != null) {
+            metadata.put("historySeconds", history.window().toSeconds());
+            metadata.put("historyBytes", history.maxBytes());
+        }
         metadata.put("durationSeconds", sessionLimits.duration().toSeconds());
         metadata.put("segmentBytes", this.limits.segmentBytes());
         metadata.put("sessionBytes", this.limits.sessionBytes());
         metadata.put("directoryBytes", this.limits.directoryBytes());
         metadata.put("minimumFreeBytes", this.limits.minimumFreeBytes());
         metadata.put("correlation", "frameId links synchronous decode only; packetId is diagnostic object identity, not a protocol sequence number");
-        DiagnosticRecorder recorder = new DiagnosticRecorder(this.root, sessionLimits, metadata);
-        Session session = new Session(recorder, watched, receivers, options);
+        DiagnosticRecorder recorder = new DiagnosticRecorder(this.root, sessionLimits, metadata, history);
+        Session session = new Session(recorder, watched, receivers, options, history != null);
         this.current = session;
         try {
             if (options.includes(DiagnosticOptions.Detail.CORE)) session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
@@ -136,6 +159,7 @@ public final class CombatDiagnostics implements AutoCloseable {
             throw new IllegalStateException("No active diagnostic session");
         if (label.isBlank() || label.length() > 512)
             throw new IllegalArgumentException("Diagnostic marker must contain 1 to 512 characters");
+        session.recorder.trigger();
         session.recorder.record("marker", Map.of("actor", actor, "label", label, "tick", DiagnosticSnapshot.tick()));
         this.captureSnapshots(session, "marker", true);
     }
@@ -152,6 +176,7 @@ public final class CombatDiagnostics implements AutoCloseable {
             return new Status(
                     recorder.isRecording(),
                     !recorder.isRecording(),
+                    recorder.isBuffering(),
                     recorder.directory(),
                     recorder.records(),
                     recorder.bytes(),
@@ -163,13 +188,14 @@ public final class CombatDiagnostics implements AutoCloseable {
             return new Status(
                     false,
                     false,
+                    false,
                     this.last.directory(),
                     this.last.records(),
                     this.last.uncompressedBytes(),
                     this.last.reason(),
                     this.last.error()
             );
-        return new Status(false, false, this.root, 0, 0, "not_started", "");
+        return new Status(false, false, false, this.root, 0, 0, "not_started", "");
     }
 
     private void tick(Session session) {
@@ -190,7 +216,8 @@ public final class CombatDiagnostics implements AutoCloseable {
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null) session.packets.connect(player);
             }
-            if (tick % session.options.sampleTicks() == 0) this.captureSnapshots(session, "tick", false);
+            boolean checkpoint = session.history && tick % 20 == 0;
+            if (checkpoint || tick % session.options.sampleTicks() == 0) this.captureSnapshots(session, "tick", checkpoint);
             if (tick % 20 == 0 && session.options.includes(DiagnosticOptions.Detail.RUNTIME)) {
                 session.recorder.record("runtime", Map.of(
                         "heapUsed", ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(),
@@ -327,6 +354,7 @@ public final class CombatDiagnostics implements AutoCloseable {
         final Set<UUID> observers;
         final Set<UUID> connections;
         final DiagnosticOptions options;
+        final boolean history;
         final Map<UUID, Map<String, Object>> playerStates = new HashMap<>();
         final Map<UUID, Map<String, Object>> viewerStates = new HashMap<>();
         final DiagnosticIds ids;
@@ -344,13 +372,14 @@ public final class CombatDiagnostics implements AutoCloseable {
         int ticks;
         boolean cleaning;
 
-        Session(DiagnosticRecorder recorder, Set<UUID> watched, Set<UUID> observers, DiagnosticOptions options) {
+        Session(DiagnosticRecorder recorder, Set<UUID> watched, Set<UUID> observers, DiagnosticOptions options, boolean history) {
             this.recorder = recorder;
             this.watched = watched;
             this.observers = observers;
             this.connections = new HashSet<>(watched);
             this.connections.addAll(observers);
             this.options = options;
+            this.history = history;
             this.ids = new DiagnosticIds(recorder::nextId);
         }
     }

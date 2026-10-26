@@ -15,18 +15,38 @@ import java.util.stream.Collectors;
 
 final class DiagnosticPacketSelection {
     private final DiagnosticOptions options;
-    private final Map<UUID, Integer> entityIds = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> entityIds;
     private final Set<String> names;
     private final Map<UUID, Map<String, Set<String>>> teams = new ConcurrentHashMap<>();
 
     DiagnosticPacketSelection(DiagnosticOptions options, Collection<? extends Player> targets) {
         this.options = options;
+        this.entityIds = new ConcurrentHashMap<>();
         this.names = targets.stream().map(Player::getName).collect(Collectors.toUnmodifiableSet());
         for (Player target : targets) this.track(target);
     }
 
     void track(Player target) {
         this.entityIds.put(target.getUniqueId(), target.getEntityId());
+    }
+
+    private DiagnosticPacketSelection(DiagnosticPacketSelection source) {
+        this.options = source.options;
+        this.names = source.names;
+        this.entityIds = source.entityIds;
+        source.teams.forEach((viewer, teams) -> {
+            Map<String, Set<String>> copied = new ConcurrentHashMap<>();
+            teams.forEach((name, members) -> {
+                Set<String> entries = ConcurrentHashMap.newKeySet();
+                entries.addAll(members);
+                copied.put(name, entries);
+            });
+            this.teams.put(viewer, copied);
+        });
+    }
+
+    DiagnosticPacketSelection copy() {
+        return new DiagnosticPacketSelection(this);
     }
 
     void observe(Player viewer) {

@@ -35,10 +35,14 @@ class DiagnosticPacketSelectionTest {
         PacketPlayOutScoreboardTeam join = new PacketPlayOutScoreboardTeam(team, List.of("Windyqing"), 3);
         assertTrue(selection.relevant(observer, join, true));
         selection.sent(observer, join);
+        DiagnosticPacketSelection wire = selection.copy();
         PacketPlayOutScoreboardTeam removal = new PacketPlayOutScoreboardTeam(team, 1);
         assertTrue(selection.relevant(observer, removal, true));
         assertTrue(selection.relevant(observer, removal, true), "Selection must not consume a packet before later capture stages");
         selection.sent(observer, removal);
+        assertTrue(wire.relevant(observer, removal, true), "Encoded-stage team state must not be consumed by the earlier write stage");
+        wire.sent(observer, removal);
+        assertFalse(wire.relevant(observer, new PacketPlayOutScoreboardTeam(team, 0), true));
         assertFalse(selection.relevant(observer, new PacketPlayOutScoreboardTeam(team, 0), true));
         assertFalse(selection.relevant(observer, new PacketPlayOutScoreboardTeam(team, 2), true));
     }
@@ -65,10 +69,13 @@ class DiagnosticPacketSelectionTest {
         assertTrue(selection.relevant(observer, destroy, true));
         assertArrayEquals(new int[]{887}, (int[]) ((Map<?, ?>) selection.snapshot(destroy)).get("entityIds"));
 
+        DiagnosticPacketSelection wire = selection.copy();
         when(target.getEntityId()).thenReturn(1000);
         selection.track(target);
         assertFalse(selection.relevant(observer, destroy, true), "Old entity IDs must stop matching after reconnect");
         assertTrue(selection.relevant(observer, new PacketPlayOutEntityDestroy(1000), true));
+        assertFalse(wire.relevant(observer, destroy, true));
+        assertTrue(wire.relevant(observer, new PacketPlayOutEntityDestroy(1000), true));
     }
 
     @Test
