@@ -7,9 +7,14 @@ public final class InventoryPageMerge {
     private InventoryPageMerge() {
     }
 
-    public static void mergeVisiblePage(ItemStack[] storage, ItemStack[] visiblePage, int page, int pageSize,
+    public static void mergeVisiblePage(
+            ItemStack[] storage,
+            ItemStack[] visiblePage,
+            int page,
+            int pageSize,
             int unlockedSlots,
-            ItemStack lockedPlaceholder) {
+            ItemStack lockedPlaceholder
+    ) {
         if (storage == null || visiblePage == null) return;
         int offset = page * pageSize;
         if (offset < 0 || offset >= storage.length) return;

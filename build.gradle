@@ -53,6 +53,8 @@ project(':mythic-framework-core') {
         implementation 'com.google.code.gson:gson:2.11.0'
         implementation 'com.belerweb:pinyin4j:2.5.1'
         compileOnly 'org.apache.logging.log4j:log4j-core:2.24.3'
+        compileOnly 'org.yaml:snakeyaml:2.2'
+        testImplementation 'org.yaml:snakeyaml:2.2'
         testImplementation 'org.apache.logging.log4j:log4j-core:2.24.3'
     }
 

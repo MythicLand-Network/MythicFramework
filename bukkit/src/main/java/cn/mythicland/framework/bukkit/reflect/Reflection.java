@@ -172,8 +172,12 @@ public final class Reflection {
      * @return An object that invokes this specific method.
      * @throws IllegalStateException If we cannot find this method.
      */
-    public static MethodInvoker getTypedMethod(Class<?> clazz, String methodName, Class<?> returnType,
-            Class<?>... params) {
+    public static MethodInvoker getTypedMethod(
+            Class<?> clazz,
+            String methodName,
+            Class<?> returnType,
+            Class<?>... params
+    ) {
         for (final Method method : clazz.getDeclaredMethods()) {
             if ((methodName == null || method.getName().equals(methodName))
                     && (returnType == null || method.getReturnType().equals(returnType))

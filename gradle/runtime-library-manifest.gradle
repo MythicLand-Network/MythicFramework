@@ -83,6 +83,14 @@ ext.registerRuntimeLibraryManifest = {
     Map<String, Configuration> platformConfigurations ->
         sourceSets.main.resources.srcDir(generatedResources)
         tasks.register(taskName) {
+            inputs.property('platforms', platformConfigurations.keySet().toList())
+            platformConfigurations.each { platform, configuration ->
+                inputs.files(configuration).withPropertyName("libraries-${platform}")
+            }
+            inputs.files(project.provider {
+                syncFirstPartyRuntimeGraph()
+                configurations.named('firstPartyRuntimeGraph').get()
+            }).withPropertyName('firstPartyRuntimeGraph')
             outputs.file(generatedResources.map { it.file(manifestPath) })
             doLast {
                 syncFirstPartyRuntimeGraph()
