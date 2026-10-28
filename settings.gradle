@@ -5,6 +5,8 @@ pluginManagement {
     }
 }
 
+apply from: file('gradle/workspace-build-lock.gradle')
+
 rootProject.name = 'MythicFramework'
 
 include 'mythic-framework-core'

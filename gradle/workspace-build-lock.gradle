@@ -1,0 +1,75 @@
+import java.nio.channels.FileChannel
+import java.nio.channels.OverlappingFileLockException
+import java.nio.file.StandardOpenOption
+import org.gradle.api.services.BuildService
+import org.gradle.api.services.BuildServiceParameters
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.configuration.BuildFeatures
+import org.gradle.api.logging.Logging
+import org.gradle.build.event.BuildEventsListenerRegistry
+import org.gradle.tooling.events.FinishEvent
+import org.gradle.tooling.events.OperationCompletionListener
+import javax.inject.Inject
+
+abstract class WorkspaceBuildLock implements BuildService<WorkspaceBuildLock.Parameters>, OperationCompletionListener, AutoCloseable {
+    interface Parameters extends BuildServiceParameters {
+        RegularFileProperty getLockFile()
+    }
+
+    private final FileChannel channel
+
+    WorkspaceBuildLock() {
+        File lockFile = parameters.lockFile.get().asFile
+        lockFile.parentFile.mkdirs()
+        channel = FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE)
+        def lock = null
+        boolean waiting = false
+        try {
+            while (lock == null) {
+                try {
+                    lock = channel.tryLock()
+                } catch (OverlappingFileLockException ignored) {
+                    // Another Gradle build in this daemon already owns the workspace.
+                }
+                if (lock != null) break
+                if (!waiting) {
+                    Logging.getLogger(WorkspaceBuildLock).lifecycle('Waiting for another MythicLand build to finish...')
+                    waiting = true
+                }
+                Thread.sleep(200)
+            }
+        } finally {
+            if (lock == null) channel.close()
+        }
+    }
+
+    @Override
+    void onFinish(FinishEvent event) {
+    }
+
+    @Override
+    void close() {
+        channel.close()
+    }
+}
+
+abstract class WorkspaceBuildServices {
+    @Inject
+    abstract BuildFeatures getBuildFeatures()
+
+    @Inject
+    abstract BuildEventsListenerRegistry getBuildEventsListenerRegistry()
+}
+
+if (gradle.parent == null) {
+    def features = extensions.create('mythiclandBuildServices', WorkspaceBuildServices)
+    if (features.buildFeatures.configurationCache.requested.getOrElse(false)) {
+        throw new GradleException('MythicLand workspace locking requires --no-configuration-cache so the lock is acquired before included builds are configured.')
+    }
+    def workspaceLock = gradle.sharedServices.registerIfAbsent('mythiclandWorkspaceBuildLock', WorkspaceBuildLock) {
+        parameters.lockFile.set(new File(buildscript.sourceFile.parentFile.parentFile, '.gradle/workspace-build.lock'))
+    }
+    // Keep the service alive through included-build tasks and release it at build completion.
+    features.buildEventsListenerRegistry.onTaskCompletion(workspaceLock)
+    workspaceLock.get()
+}
