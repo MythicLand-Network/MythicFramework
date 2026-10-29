@@ -28,6 +28,7 @@ public final class ComponentContainer implements ComponentResolver {
     private final ThreadLocal<List<Class<?>>> resolvingTypes = ThreadLocal.withInitial(ArrayList::new);
 
     private Set<Class<?>> managedTypes = new LinkedHashSet<>();
+    private List<Class<?>> orderedManagedTypes = List.of();
     private String basePackage;
     private Reflections reflections;
 
@@ -138,6 +139,7 @@ public final class ComponentContainer implements ComponentResolver {
             }
             discovered.removeIf(type -> type.isInterface() || Modifier.isAbstract(type.getModifiers()));
             this.managedTypes = discovered;
+            this.orderedManagedTypes = ordered(discovered);
             this.validateComponentContracts(roles, typeFilter);
             this.validateDefaultImplementations(typeFilter);
             this.validateComponentScopes(typeFilter);
@@ -180,7 +182,7 @@ public final class ComponentContainer implements ComponentResolver {
         Objects.requireNonNull(mark, "mark");
         Objects.requireNonNull(contract, "contract");
         List<T> result = new ArrayList<>();
-        for (Class<?> type : this.ordered(this.managedTypes)) {
+        for (Class<?> type : this.orderedManagedTypes) {
             if (!type.isAnnotationPresent(mark) || !contract.isAssignableFrom(type)) continue;
             this.requireSingletonScope(type, "resolveAll");
             result.add(contract.cast(this.resolve(type)));
@@ -190,7 +192,7 @@ public final class ComponentContainer implements ComponentResolver {
 
     @Override
     public List<Class<?>> managedTypes() {
-        return this.ordered(this.managedTypes);
+        return this.orderedManagedTypes;
     }
 
     @Override
@@ -222,12 +224,12 @@ public final class ComponentContainer implements ComponentResolver {
 
     public void validateDependencyGraph() {
         Map<Class<?>, List<Class<?>>> dependencies = new LinkedHashMap<>();
-        for (Class<?> type : this.ordered(this.managedTypes)) {
+        for (Class<?> type : this.orderedManagedTypes) {
             dependencies.put(type, this.constructorDependencies(type));
         }
         Map<Class<?>, Boolean> completed = new LinkedHashMap<>();
         List<Class<?>> path = new ArrayList<>();
-        for (Class<?> type : this.ordered(this.managedTypes)) {
+        for (Class<?> type : this.orderedManagedTypes) {
             this.validateDependencyPath(type, dependencies, completed, path);
         }
     }
@@ -374,7 +376,7 @@ public final class ComponentContainer implements ComponentResolver {
             Class<?> parameterType = parameters[index].getType();
             if (parameterType == ComponentSet.class) {
                 Class<?> elementType = this.componentSetElementType(genericTypes[index], owner);
-                for (Class<?> type : this.ordered(this.managedTypes)) {
+                for (Class<?> type : this.orderedManagedTypes) {
                     if (elementType.isAssignableFrom(type)) {
                         this.requireSingletonScope(type, "ComponentSet");
                         dependencies.add(type);
@@ -463,7 +465,7 @@ public final class ComponentContainer implements ComponentResolver {
             return requestedType;
         }
         List<Class<? extends T>> candidates = new ArrayList<>();
-        for (Class<?> type : this.ordered(this.managedTypes)) {
+        for (Class<?> type : this.orderedManagedTypes) {
             if (requestedType.isAssignableFrom(type)) candidates.add(type.asSubclass(requestedType));
         }
         if (candidates.isEmpty()) throw new IllegalStateException("Missing component: " + requestedType.getName());
@@ -691,6 +693,7 @@ public final class ComponentContainer implements ComponentResolver {
     private void resetScanState() {
         this.loadedLifecycles.clear();
         this.managedTypes.clear();
+        this.orderedManagedTypes = List.of();
         this.reflections = null;
         this.basePackage = null;
     }
@@ -699,6 +702,7 @@ public final class ComponentContainer implements ComponentResolver {
         this.loadedLifecycles.clear();
         this.components.clear();
         this.managedTypes.clear();
+        this.orderedManagedTypes = List.of();
         this.explicitlyBoundManagedTypes.clear();
         this.reflections = null;
         this.basePackage = null;

@@ -12,6 +12,14 @@ public final class SoundCompat {
     private SoundCompat() {
     }
 
+    public static Sound requireAny(String legacyName, String modernName) {
+        try {
+            return Sound.valueOf(legacyName);
+        } catch (IllegalArgumentException ignored) {
+            return Sound.valueOf(modernName);
+        }
+    }
+
     public static Sound matchSound(String rawName) {
         String soundName = trimToEmpty(rawName);
         if (soundName.isEmpty()) {

@@ -47,11 +47,7 @@ final class DiagnosticSnapshot {
     static Map<String, Object> player(Player player, DiagnosticOptions options) {
         int[] remaining = {512, 8192, options.includes(DiagnosticOptions.Detail.NBT) ? 1 : 0};
         if (options.captures(DiagnosticOptions.PacketGroup.COMBAT)) return player(player, true, remaining);
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("uuid", player.getUniqueId().toString());
-        out.put("name", player.getName());
-        out.put("entityId", player.getEntityId());
-        out.put("world", player.getWorld().getUID().toString());
+        Map<String, Object> out = playerIdentity(player);
         if (options.captures(DiagnosticOptions.PacketGroup.MOVEMENT)
                 || options.captures(DiagnosticOptions.PacketGroup.VISIBILITY)) {
             out.put("position", location(player.getLocation()));
@@ -101,11 +97,7 @@ final class DiagnosticSnapshot {
 
     private static Map<String, Object> player(Player player, boolean equipment, int[] remaining) {
         EntityPlayer handle = ((CraftPlayer) player).getHandle();
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("uuid", player.getUniqueId().toString());
-        out.put("name", player.getName());
-        out.put("entityId", player.getEntityId());
-        out.put("world", player.getWorld().getUID().toString());
+        Map<String, Object> out = playerIdentity(player);
         out.put("position", location(player.getLocation()));
         out.put("eye", location(player.getEyeLocation()));
         out.put("velocity", vector(player.getVelocity()));
@@ -154,6 +146,15 @@ final class DiagnosticSnapshot {
         out.put("footing", footing);
         if (equipment)
             out.put("armor", value(player.getInventory().getArmorContents(), 0, new IdentityHashMap<>(), remaining));
+        return out;
+    }
+
+    private static Map<String, Object> playerIdentity(Player player) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("uuid", player.getUniqueId().toString());
+        out.put("name", player.getName());
+        out.put("entityId", player.getEntityId());
+        out.put("world", player.getWorld().getUID().toString());
         return out;
     }
 

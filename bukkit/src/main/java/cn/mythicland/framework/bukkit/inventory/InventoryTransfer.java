@@ -32,6 +32,31 @@ public final class InventoryTransfer {
         return isEmpty(remaining) ? null : remaining;
     }
 
+    public static int insert(ItemStack[] target, ItemStack source, int amount) {
+        if (amount <= 0 || isEmpty(source)) return amount;
+        int remaining = amount;
+        for (int slot = 0; slot < target.length && remaining > 0; slot++) {
+            ItemStack existing = target[slot];
+            if (isEmpty(existing)) continue;
+            int capacity = Math.min(existing.getMaxStackSize(), source.getMaxStackSize()) - existing.getAmount();
+            if (capacity <= 0 || !existing.isSimilar(source)) continue;
+            int moved = Math.min(capacity, remaining);
+            ItemStack merged = existing.clone();
+            merged.setAmount(existing.getAmount() + moved);
+            target[slot] = merged;
+            remaining -= moved;
+        }
+        for (int slot = 0; slot < target.length && remaining > 0; slot++) {
+            if (!isEmpty(target[slot])) continue;
+            int moved = Math.min(source.getMaxStackSize(), remaining);
+            ItemStack placed = source.clone();
+            placed.setAmount(moved);
+            target[slot] = placed;
+            remaining -= moved;
+        }
+        return remaining;
+    }
+
     private static boolean isEmpty(ItemStack itemStack) {
         return itemStack == null || itemStack.getType() == Material.AIR || itemStack.getAmount() <= 0;
     }

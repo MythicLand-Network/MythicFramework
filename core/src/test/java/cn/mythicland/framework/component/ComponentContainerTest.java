@@ -6,6 +6,8 @@ import cn.mythicland.framework.component.lifecyclefailure.RollbackFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Comparator;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -87,6 +89,26 @@ class ComponentContainerTest {
                 IllegalStateException.class,
                 () -> this.container.scan("cn.mythicland.framework.component.fixture")
         );
+    }
+
+    @Test
+    void clearingContainerDiscardsDiscoveredTypesBeforeRescanning() {
+        this.container.discover("cn.mythicland.framework.component.fixture");
+        var discovered = this.container.managedTypes();
+        assertEquals(
+                discovered.stream()
+                        .sorted(Comparator.comparing(Class::getName))
+                        .toList(),
+                discovered
+        );
+
+        this.container.clear();
+        assertEquals(java.util.List.of(), this.container.managedTypes());
+        this.container.discover(
+                "cn.mythicland.framework.component.fixture", type -> type == ConfigurationFixture.class
+        );
+
+        assertEquals(java.util.List.of(ConfigurationFixture.class), this.container.managedTypes());
     }
 
     @Test

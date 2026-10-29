@@ -25,7 +25,7 @@ final class DiagnosticFrames extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
+    public void channelRead(ChannelHandlerContext context, Object message) {
         long previous = frame.get();
         try {
             if (recorder.isRecording() && message instanceof ByteBuf buffer) {

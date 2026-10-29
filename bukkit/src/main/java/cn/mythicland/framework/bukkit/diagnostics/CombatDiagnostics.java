@@ -1,9 +1,5 @@
 package cn.mythicland.framework.bukkit.diagnostics;
 
-import java.net.URI;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.HashSet;
 import cn.mythicland.framework.diagnostics.DiagnosticIds;
 import cn.mythicland.framework.diagnostics.DiagnosticRecorder;
 import org.bukkit.Bukkit;
@@ -14,18 +10,13 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HexFormat;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,18 +24,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public final class CombatDiagnostics implements AutoCloseable {
-    public record Status(
-            boolean recording,
-            boolean stopping,
-            boolean buffering,
-            Path directory,
-            long records,
-            long bytes,
-            String reason,
-            String error
-    ) {
-    }
-
     private final JavaPlugin plugin;
     private final Path root;
     private final DiagnosticRecorder.Limits limits;
@@ -52,7 +31,11 @@ public final class CombatDiagnostics implements AutoCloseable {
     private DiagnosticRecorder.Summary last;
     private boolean closed;
 
-    public CombatDiagnostics(JavaPlugin plugin, Path root, DiagnosticRecorder.Limits limits) {
+    public CombatDiagnostics(
+            JavaPlugin plugin,
+            Path root,
+            DiagnosticRecorder.Limits limits
+    ) {
         this.plugin = plugin;
         this.root = root;
         this.limits = limits;
@@ -130,7 +113,8 @@ public final class CombatDiagnostics implements AutoCloseable {
         Session session = new Session(recorder, watched, receivers, options, history != null);
         this.current = session;
         try {
-            if (options.includes(DiagnosticOptions.Detail.CORE)) session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
+            if (options.includes(DiagnosticOptions.Detail.CORE))
+                session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
             session.packets = new DiagnosticPackets(this.plugin, recorder, session.ids, players, receivers, options);
             if (options.includes(DiagnosticOptions.Detail.EVENTS) || options.includes(DiagnosticOptions.Detail.LISTENERS)) {
                 session.events = new DiagnosticEvents(
@@ -217,7 +201,8 @@ public final class CombatDiagnostics implements AutoCloseable {
                 if (player != null) session.packets.connect(player);
             }
             boolean checkpoint = session.history && tick % 20 == 0;
-            if (checkpoint || tick % session.options.sampleTicks() == 0) this.captureSnapshots(session, "tick", checkpoint);
+            if (checkpoint || tick % session.options.sampleTicks() == 0)
+                this.captureSnapshots(session, "tick", checkpoint);
             if (tick % 20 == 0 && session.options.includes(DiagnosticOptions.Detail.RUNTIME)) {
                 session.recorder.record("runtime", Map.of(
                         "heapUsed", ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(),
@@ -346,6 +331,18 @@ public final class CombatDiagnostics implements AutoCloseable {
         }
         this.last = session.recorder.completion().join();
         this.current = null;
+    }
+
+    public record Status(
+            boolean recording,
+            boolean stopping,
+            boolean buffering,
+            Path directory,
+            long records,
+            long bytes,
+            String reason,
+            String error
+    ) {
     }
 
     private static final class Session {
