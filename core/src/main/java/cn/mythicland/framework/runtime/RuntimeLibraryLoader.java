@@ -2,16 +2,11 @@ package cn.mythicland.framework.runtime;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -21,8 +16,6 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 public final class RuntimeLibraryLoader {
-    private static final int CONNECT_TIMEOUT_MILLIS = 30_000;
-    private static final int READ_TIMEOUT_MILLIS = 60_000;
     private static final String STATE_FILE = ".managed-libraries";
 
     private final Path libraryDirectory;
@@ -126,23 +119,8 @@ public final class RuntimeLibraryLoader {
         this.infoLogger.accept("Downloading dependency jar: " + target.getFileName());
         for (String downloadUrl : library.downloadUrls()) {
             try {
-                URLConnection connection = URI.create(downloadUrl).toURL().openConnection();
-                connection.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
-                connection.setReadTimeout(READ_TIMEOUT_MILLIS);
-                connection.setRequestProperty("User-Agent", "MythicFramework-LibraryLoader");
-                try (InputStream input = connection.getInputStream();
-                     OutputStream output = Files.newOutputStream(temporary)) {
-                    input.transferTo(output);
-                }
-                if (!this.hasExpectedHash(temporary, library.sha256())) {
-                    throw new IOException("SHA-256 mismatch for " + library.coordinate());
-                }
-                Files.move(
-                        temporary,
-                        target,
-                        StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING
-                );
+                RuntimeArtifacts.download(URI.create(downloadUrl), target, library.sha256(),
+                        "MythicFramework-LibraryLoader");
                 return;
             } catch (IOException exception) {
                 lastFailure = exception;
@@ -154,16 +132,8 @@ public final class RuntimeLibraryLoader {
     }
 
     private boolean hasExpectedHash(Path file, String expectedHash) throws IOException {
-        if (!Files.isRegularFile(file) || Files.size(file) == 0L) return false;
-        try (InputStream input = Files.newInputStream(file)) {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) digest.update(buffer, 0, read);
-            return expectedHash.equalsIgnoreCase(toHex(digest.digest()));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return Files.isRegularFile(file) && Files.size(file) != 0L
+                && expectedHash.equalsIgnoreCase(RuntimeArtifacts.sha256(file));
     }
 
     private void cleanupManagedLibraries(
@@ -196,11 +166,6 @@ public final class RuntimeLibraryLoader {
                 .toList();
     }
 
-    private static String toHex(byte[] bytes) {
-        StringBuilder result = new StringBuilder(bytes.length * 2);
-        for (byte value : bytes) result.append(String.format("%02x", value));
-        return result.toString();
-    }
 
     private record RuntimeLibrary(
             String coordinate,

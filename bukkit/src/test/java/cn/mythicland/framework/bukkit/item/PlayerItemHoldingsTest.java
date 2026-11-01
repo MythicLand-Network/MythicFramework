@@ -1,6 +1,6 @@
 package cn.mythicland.framework.bukkit.item;
 
-import cn.mythicland.framework.menu.MenuManager;
+import cn.mythicland.framework.bukkit.menu.MenuManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;

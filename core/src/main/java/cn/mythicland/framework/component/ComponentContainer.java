@@ -1,9 +1,5 @@
 package cn.mythicland.framework.component;
 
-import org.reflections.Reflections;
-import org.reflections.scanners.Scanners;
-import org.reflections.util.ConfigurationBuilder;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -30,7 +26,9 @@ public final class ComponentContainer implements ComponentResolver {
     private Set<Class<?>> managedTypes = new LinkedHashSet<>();
     private List<Class<?>> orderedManagedTypes = List.of();
     private String basePackage;
-    private Reflections reflections;
+    private List<Class<?>> scannedClasses = List.of();
+    private Predicate<Class<?>> defaultImplementation = type -> type.isAnnotationPresent(DefaultImplementation.class);
+    private boolean externalTypes;
 
     public ComponentContainer bind(Object dependency) {
         if (dependency == null) throw new IllegalArgumentException("Component binding cannot be null");
@@ -100,6 +98,32 @@ public final class ComponentContainer implements ComponentResolver {
         this.discover(packageName, typeFilter, false);
     }
 
+    /** Discovers externally annotated singleton components without starting their lifecycle. */
+    public void discover(
+            ClassLoader classLoader,
+            String packageName,
+            Predicate<Class<?>> component,
+            Predicate<Class<?>> defaultImplementation
+    ) {
+        Objects.requireNonNull(classLoader, "classLoader");
+        Objects.requireNonNull(packageName, "packageName");
+        Objects.requireNonNull(component, "component");
+        Objects.requireNonNull(defaultImplementation, "defaultImplementation");
+        if (this.basePackage != null) throw new IllegalStateException("Component container has already been scanned");
+        this.basePackage = packageName;
+        this.externalTypes = true;
+        this.defaultImplementation = defaultImplementation;
+        try {
+            this.scannedClasses = ComponentScanner.scan(classLoader, packageName);
+            this.managedTypes = new LinkedHashSet<>(this.scannedClasses.stream().filter(component).toList());
+            this.orderedManagedTypes = ordered(this.managedTypes);
+            if (this.managedTypes.isEmpty()) throw new IllegalStateException("No components found below package: " + packageName);
+        } catch (RuntimeException | Error exception) {
+            this.clearState();
+            throw exception;
+        }
+    }
+
     private void discover(
             String packageName,
             Predicate<Class<?>> typeFilter,
@@ -107,17 +131,13 @@ public final class ComponentContainer implements ComponentResolver {
     ) {
         Objects.requireNonNull(packageName, "packageName");
         Objects.requireNonNull(typeFilter, "typeFilter");
-        if (this.reflections != null || !this.managedTypes.isEmpty() || !this.loadedLifecycles.isEmpty()) {
+        if (this.basePackage != null || !this.managedTypes.isEmpty() || !this.loadedLifecycles.isEmpty()) {
             throw new IllegalStateException("Component container has already been scanned");
         }
         this.resetScanState();
         try {
             this.basePackage = packageName;
-            this.reflections = new Reflections(
-                    new ConfigurationBuilder()
-                            .forPackages(packageName)
-                            .setScanners(Scanners.TypesAnnotated, Scanners.SubTypes, Scanners.MethodsAnnotated)
-            );
+            this.scannedClasses = ComponentScanner.scan(Thread.currentThread().getContextClassLoader(), packageName);
 
             Set<Class<?>> injectableTypes = this.findAnnotatedTypes(InjectComponent.class, typeFilter);
             Set<Class<? extends Annotation>> roles = this.findComponentRoles(typeFilter);
@@ -154,7 +174,7 @@ public final class ComponentContainer implements ComponentResolver {
     @Override
     public <T> T resolve(Class<T> requestedType) {
         Objects.requireNonNull(requestedType, "requestedType");
-        Object existing = this.find(requestedType);
+        Object existing = this.externalTypes ? this.components.get(requestedType) : this.find(requestedType);
         if (existing != null) return requestedType.cast(existing);
         Class<? extends T> implementation = this.resolveImplementation(requestedType);
         this.requireSingletonScope(implementation, "resolve");
@@ -276,7 +296,10 @@ public final class ComponentContainer implements ComponentResolver {
 
     private <T> T instantiateSingleton(Class<T> requestedType, Class<? extends T> implementation) {
         Object existing = this.components.get(implementation);
-        if (existing != null) return requestedType.cast(existing);
+        if (existing != null) {
+            if (requestedType != implementation) this.components.put(requestedType, existing);
+            return requestedType.cast(existing);
+        }
         T created = this.instantiateWithCycleGuard(requestedType, implementation, ComponentArguments.empty());
         this.components.put(implementation, created);
         if (requestedType != implementation) this.components.put(requestedType, created);
@@ -466,12 +489,13 @@ public final class ComponentContainer implements ComponentResolver {
         }
         List<Class<? extends T>> candidates = new ArrayList<>();
         for (Class<?> type : this.orderedManagedTypes) {
+            if (type.isInterface() || Modifier.isAbstract(type.getModifiers())) continue;
             if (requestedType.isAssignableFrom(type)) candidates.add(type.asSubclass(requestedType));
         }
         if (candidates.isEmpty()) throw new IllegalStateException("Missing component: " + requestedType.getName());
         Class<? extends T> defaultImplementation = null;
         for (Class<? extends T> candidate : candidates) {
-            if (!candidate.isAnnotationPresent(DefaultImplementation.class)) continue;
+            if (!this.defaultImplementation.test(candidate)) continue;
             if (defaultImplementation != null) {
                 throw new IllegalStateException("Multiple components implement " + requestedType.getName());
             }
@@ -494,8 +518,8 @@ public final class ComponentContainer implements ComponentResolver {
                 match = component;
                 continue;
             }
-            if (match.getClass().isAnnotationPresent(DefaultImplementation.class)) continue;
-            if (component.getClass().isAnnotationPresent(DefaultImplementation.class)) {
+            if (this.defaultImplementation.test(match.getClass())) continue;
+            if (this.defaultImplementation.test(component.getClass())) {
                 match = component;
                 continue;
             }
@@ -596,7 +620,8 @@ public final class ComponentContainer implements ComponentResolver {
 
     private Set<Class<? extends Annotation>> findComponentRoles(Predicate<Class<?>> filter) {
         Set<Class<? extends Annotation>> roles = new LinkedHashSet<>();
-        for (Class<?> type : this.reflections.getTypesAnnotatedWith(ComponentRole.class)) {
+        for (Class<?> type : this.scannedClasses) {
+            if (!type.isAnnotationPresent(ComponentRole.class)) continue;
             if (!type.isAnnotation() || !this.isInSource(type) || !filter.test(type)) continue;
             roles.add(type.asSubclass(Annotation.class));
         }
@@ -608,8 +633,8 @@ public final class ComponentContainer implements ComponentResolver {
             Predicate<Class<?>> filter
     ) {
         Set<Class<?>> result = new LinkedHashSet<>();
-        if (this.reflections == null) return result;
-        for (Class<?> type : this.reflections.getTypesAnnotatedWith(annotation)) {
+        for (Class<?> type : this.scannedClasses) {
+            if (!type.isAnnotationPresent(annotation)) continue;
             if (this.isInSource(type) && filter.test(type)) result.add(type);
         }
         return result;
@@ -644,8 +669,9 @@ public final class ComponentContainer implements ComponentResolver {
         }
     }
 
-    private static ComponentScope componentScope(Class<?> type) {
+    private ComponentScope componentScope(Class<?> type) {
         InjectComponent annotation = type.getAnnotation(InjectComponent.class);
+        if (annotation == null && this.externalTypes) return ComponentScope.SINGLETON;
         if (annotation == null) {
             throw new IllegalStateException("Component is missing @InjectComponent: " + type.getName());
         }
@@ -694,7 +720,9 @@ public final class ComponentContainer implements ComponentResolver {
         this.loadedLifecycles.clear();
         this.managedTypes.clear();
         this.orderedManagedTypes = List.of();
-        this.reflections = null;
+        this.scannedClasses = List.of();
+        this.defaultImplementation = type -> type.isAnnotationPresent(DefaultImplementation.class);
+        this.externalTypes = false;
         this.basePackage = null;
     }
 
@@ -704,7 +732,9 @@ public final class ComponentContainer implements ComponentResolver {
         this.managedTypes.clear();
         this.orderedManagedTypes = List.of();
         this.explicitlyBoundManagedTypes.clear();
-        this.reflections = null;
+        this.scannedClasses = List.of();
+        this.defaultImplementation = type -> type.isAnnotationPresent(DefaultImplementation.class);
+        this.externalTypes = false;
         this.basePackage = null;
     }
 

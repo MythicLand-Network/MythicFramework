@@ -32,7 +32,7 @@ public final class LocationSnapper {
         return Math.round(angle / VIEW_STEP) * VIEW_STEP;
     }
 
-    private static float normalizeYaw(float yaw) {
+    public static float normalizeYaw(float yaw) {
         float normalized = yaw % 360.0F;
         if (normalized <= -180.0F) {
             normalized += 360.0F;
@@ -40,6 +40,40 @@ public final class LocationSnapper {
             normalized -= 360.0F;
         }
         return normalized;
+    }
+
+    public static double snapHorizontalCoordinate(double coordinate) {
+        if (!Double.isFinite(coordinate)) throw new IllegalArgumentException("coordinate must be finite");
+        return Math.floor(coordinate) + 0.5D;
+    }
+
+    public static double snapStandingHeight(double height) {
+        if (!Double.isFinite(height)) throw new IllegalArgumentException("height must be finite");
+        return Math.floor(height);
+    }
+
+    public static float snapYaw(float yaw) {
+        if (!Float.isFinite(yaw)) throw new IllegalArgumentException("yaw must be finite");
+        return normalizeYaw(snapToStep(yaw % 360.0F));
+    }
+
+    public static Location snapBlockCenter(Location location) {
+        requireWorld(location);
+        return new Location(location.getWorld(), Math.floor(location.getX()) + 0.5D, location.getY(),
+                Math.floor(location.getZ()) + 0.5D, location.getYaw(), location.getPitch());
+    }
+
+    public static Location snapBlockAndHorizontalView(Location location) {
+        requireWorld(location);
+        if (!Float.isFinite(location.getPitch())) throw new IllegalArgumentException("pitch must be finite");
+        return new Location(location.getWorld(), snapHorizontalCoordinate(location.getX()),
+                snapStandingHeight(location.getY()), snapHorizontalCoordinate(location.getZ()),
+                snapYaw(location.getYaw()), 0.0F);
+    }
+
+    private static void requireWorld(Location location) {
+        if (location == null) throw new IllegalArgumentException("location must not be null");
+        if (location.getWorld() == null) throw new IllegalArgumentException("location world must not be null");
     }
 
     private static float clampPitch(float pitch) {

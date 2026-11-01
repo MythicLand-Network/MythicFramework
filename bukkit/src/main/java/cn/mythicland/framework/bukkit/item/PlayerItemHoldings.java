@@ -1,13 +1,14 @@
 package cn.mythicland.framework.bukkit.item;
 
-import cn.mythicland.framework.menu.MenuManager;
+import cn.mythicland.framework.bukkit.menu.MenuManager;
+
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 public final class PlayerItemHoldings {
     private final MenuManager menuManager;

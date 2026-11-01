@@ -48,7 +48,7 @@ subprojects {
 
 project(':mythic-framework-core') {
     dependencies {
-        api 'org.reflections:reflections:0.10.2'
+        compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
         implementation 'it.unimi.dsi:fastutil:8.5.13'
         implementation 'com.google.code.gson:gson:2.11.0'
         implementation 'com.belerweb:pinyin4j:2.5.1'
@@ -71,6 +71,13 @@ project(':mythic-framework-bukkit') {
     apply from: rootProject.file('gradle/spigot-1.8.8.gradle')
     repositories {
         maven { url = 'https://repo.dmulloy2.net/nexus/repository/public/' }
+        maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+    }
+    // Compile newer platform adapters separately; the shared Bukkit API keeps its 1.8 baseline.
+    sourceSets {
+        legacy112 {
+            compileClasspath += sourceSets.main.output + configurations.compileClasspath
+        }
     }
     dependencies {
         api project(':mythic-framework-core')
@@ -79,11 +86,25 @@ project(':mythic-framework-bukkit') {
         compileOnly files(spigot188Jar)
         compileOnly 'net.dmulloy2:ProtocolLib:5.4.0'
         compileOnly 'net.luckperms:api:5.4'
+        // Keep the exact existing plugin SDK; its published POM pulls in unrelated modern NMS modules.
+        compileOnly files(rootProject.file('libs/DecentHolograms-2.10.1.jar'))
         testImplementation 'net.luckperms:api:5.4'
         compileOnly 'io.netty:netty-transport:4.1.132.Final'
         testImplementation 'org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT'
         testImplementation files(spigot188Jar)
+        legacy112CompileOnly 'com.destroystokyo.paper:paper-api:1.12.2-R0.1-20190714.184133-413'
     }
+    tasks.named('compileLegacy112Java') {
+        classpath = configurations.legacy112CompileClasspath + sourceSets.main.output + configurations.compileClasspath
+    }
+    configurations.apiElements.outgoing.variants.named('classes') {
+        artifact(sourceSets.legacy112.output.classesDirs.singleFile) {
+            type = 'java-classes-directory'
+            builtBy tasks.named('compileLegacy112Java')
+        }
+    }
+    tasks.named('jar') { from sourceSets.legacy112.output }
+    tasks.named('sourcesJar') { from sourceSets.legacy112.allSource }
 
     tasks.named('compileJava') {
         dependsOn tasks.named('prepareSpigot188')
@@ -124,6 +145,7 @@ project(':mythic-framework-world') {
 
 project(':mythic-framework-database') {
     dependencies {
+        api project(':mythic-framework-core')
         implementation 'com.zaxxer:HikariCP:4.0.3'
         implementation 'org.flywaydb:flyway-core:13.4.0'
         testRuntimeOnly 'org.xerial:sqlite-jdbc:3.46.1.3'

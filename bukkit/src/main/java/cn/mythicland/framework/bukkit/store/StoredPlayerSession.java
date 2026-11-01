@@ -88,6 +88,13 @@ public final class StoredPlayerSession<P, I> {
         return this.profileData;
     }
 
+    public synchronized void requireFullFlush() {
+        this.profileDirty = true;
+        this.inventoryDirty = true;
+        this.profileRevision++;
+        this.inventoryRevision++;
+    }
+
     public synchronized StoredPlayerFlush<P, I> prepareFlush() {
         boolean flushProfile = this.profileDirty && !this.profileFlushInProgress;
         boolean flushInventory = this.inventoryDirty && !this.inventoryFlushInProgress;
