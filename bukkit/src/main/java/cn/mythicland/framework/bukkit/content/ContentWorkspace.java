@@ -26,6 +26,8 @@ import java.util.stream.Stream;
 /** Resolves a single editable content tree. File I/O belongs on the owner's I/O executor. */
 public final class ContentWorkspace {
     private final SafePathResolver content;
+    private final String collectionDirectory;
+    private final String descriptor;
     private volatile Map<String, String> files = Map.of();
 
     /**
@@ -34,7 +36,14 @@ public final class ContentWorkspace {
      * @throws UncheckedIOException if its optional manifest is unreadable
      */
     public ContentWorkspace(Path directory) {
+        this(directory, "", "");
+    }
+
+    /** Opens a workspace with opt-in collections described by name, order and enabled fields. */
+    public ContentWorkspace(Path directory, String collectionDirectory, String descriptor) {
         content = new SafePathResolver(directory);
+        this.collectionDirectory = collectionDirectory;
+        this.descriptor = descriptor;
         reloadManifest();
     }
 
@@ -117,9 +126,14 @@ public final class ContentWorkspace {
      */
     public synchronized Map<String, List<Path>> definitions(Collection<String> kinds) {
         Map<String, List<Path>> result = new LinkedHashMap<>();
+        List<Path> roots = sourceRoots();
         for (String kind : kinds) {
-            Path directory = content.resolveSingleSegment(kind);
-            List<Path> sources = Files.exists(directory, LinkOption.NOFOLLOW_LINKS) ? yamlFiles(directory) : List.of();
+            content.resolveSingleSegment(kind);
+            List<Path> sources = new ArrayList<>();
+            for (Path base : roots) {
+                Path resource = base.resolve(kind);
+                if (Files.exists(resource, LinkOption.NOFOLLOW_LINKS)) sources.addAll(yamlFiles(resource));
+            }
             Map<String, Path> ids = new HashMap<>();
             for (Path source : sources) {
                 for (String id : readYaml(source).getKeys(false)) {
@@ -178,6 +192,72 @@ public final class ContentWorkspace {
         } catch (org.yaml.snakeyaml.error.YAMLException exception) {
             throw new IllegalArgumentException("Invalid YAML in " + path + ": " + exception.getMessage(), exception);
         }
+    }
+
+    /** Immutable editable collection descriptor. Disabled collections never contribute source files. */
+    public record CollectionInfo(String id, String name, int order, boolean enabled) { }
+
+    /** @return ordered descriptors; malformed metadata fails even for disabled collections */
+    public List<CollectionInfo> collections() {
+        if (collectionDirectory.isEmpty()) return List.of();
+        Path directory = content.resolveSingleSegment(collectionDirectory);
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return List.of();
+        try (Stream<Path> entries = Files.list(directory)) {
+            List<CollectionInfo> result = new ArrayList<>();
+            for (Path entry : entries.sorted().toList()) {
+                if (Files.isSymbolicLink(entry) || !Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS))
+                    throw new IllegalArgumentException("Invalid collection directory: " + entry);
+                String id = entry.getFileName().toString();
+                if (!id.matches("[a-z][a-z0-9_-]*")) throw new IllegalArgumentException("Invalid collection ID: " + id);
+                YamlConfiguration yaml = readYaml(entry.resolve(descriptor));
+                if (!yaml.isBoolean("enabled") || !yaml.isString("name") || yaml.getString("name").isBlank()
+                        || (yaml.contains("order") && !yaml.isInt("order")))
+                    throw new IllegalArgumentException("Invalid collection descriptor: " + entry);
+                for (String key : yaml.getKeys(false)) if (!Set.of("name", "enabled", "order").contains(key))
+                    throw new IllegalArgumentException("Unknown collection setting: " + entry + " / " + key);
+                result.add(new CollectionInfo(id, yaml.getString("name"), yaml.getInt("order"), yaml.getBoolean("enabled")));
+            }
+            return result.stream().sorted(Comparator.comparingInt(CollectionInfo::order).thenComparing(CollectionInfo::id)).toList();
+        } catch (IOException exception) { throw new UncheckedIOException(exception); }
+    }
+
+    /** @return active source roots, including workspace-wide and shared definitions */
+    public List<Path> sourceRoots() {
+        List<Path> result = new ArrayList<>();
+        result.add(root());
+        if (!collectionDirectory.isEmpty()) {
+            result.add(content.resolveSingleSegment("common"));
+            for (CollectionInfo info : collections()) if (info.enabled())
+                result.add(content.resolveRelative(collectionDirectory + "/" + info.id()));
+        }
+        return List.copyOf(result);
+    }
+
+    /** Resolves a new resource destination, rejecting unknown or disabled collection IDs. */
+    public Path destination(String collection, String relative) {
+        if (collectionDirectory.isEmpty()) return content.resolveRelative(relative);
+        if (collection.equals("common")) return content.resolveRelative("common/" + relative);
+        if (collections().stream().noneMatch(info -> info.id().equals(collection) && info.enabled()))
+            throw new IllegalArgumentException("Unknown or disabled content collection: " + collection);
+        return content.resolveRelative(collectionDirectory + "/" + collection + "/" + relative);
+    }
+
+    /** @return existing documents in active roots; the name must be a single safe segment */
+    public List<Path> documents(String name) {
+        content.resolveSingleSegment(name);
+        return sourceRoots().stream().map(base -> base.resolve(name))
+                .filter(path -> Files.exists(path, LinkOption.NOFOLLOW_LINKS)).toList();
+    }
+
+    /** Opens an aggregate document while retaining the owner of every section entry. */
+    public ContentDocument document(String name) {
+        return new ContentDocument(documents(name), destination("common", name));
+    }
+
+    /** @return the resource kind relative to its active source root */
+    public String kind(Path source) {
+        return sourceRoots().stream().filter(base -> !base.equals(root()) && source.startsWith(base))
+                .findFirst().orElse(root()).relativize(source).getName(0).toString();
     }
 
     private static void validateKeys(Node node, Path path, Set<Node> visited) {
