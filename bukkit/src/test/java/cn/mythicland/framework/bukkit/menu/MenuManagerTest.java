@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -263,11 +264,71 @@ final class MenuManagerTest {
         };
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(() -> Bukkit.createInventory(any(InventoryHolder.class), org.mockito.ArgumentMatchers.eq(9),
-                    org.mockito.ArgumentMatchers.eq("test"))).thenReturn(inventory);
+                    org.mockito.ArgumentMatchers.eq("test")
+            )).thenReturn(inventory);
             manager.open(player, menu);
         }
         verify(inventory).clear();
         verify(player).openInventory(inventory);
+        verify(player, never()).closeInventory();
+    }
+
+    @Test
+    void inventoryMenuSwitchesTitleAndSizeWithoutClosingTheScreen() {
+        TaskScheduler scheduler = mock(TaskScheduler.class);
+        doAnswer(call -> {
+            ((Runnable) call.getArgument(0)).run();
+            return null;
+        }).when(scheduler).executeSyncIfNeeded(any(Runnable.class));
+        MenuManager manager = new MenuManager(mock(JavaPlugin.class), mock(ComponentResolver.class), scheduler);
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        InventoryView view = mock(InventoryView.class);
+        when(player.getOpenInventory()).thenReturn(view);
+        Inventory[] visible = new Inventory[1];
+        when(view.getTopInventory()).thenAnswer(call -> visible[0]);
+        doAnswer(call -> {
+            if (visible[0] != null) {
+                InventoryCloseEvent close = mock(InventoryCloseEvent.class);
+                when(close.getPlayer()).thenReturn(player);
+                when(close.getInventory()).thenReturn(visible[0]);
+                manager.onInventoryMenuClose(close);
+            }
+            visible[0] = call.getArgument(0);
+            return view;
+        }).when(player).openInventory(any(Inventory.class));
+        InventoryMenu previous = null;
+        Inventory previousInventory = null;
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.createInventory(any(InventoryHolder.class), anyInt(), any(String.class)))
+                    .thenAnswer(call -> {
+                        Inventory inventory = mock(Inventory.class);
+                        when(inventory.getHolder()).thenReturn(call.getArgument(0));
+                        when(inventory.getSize()).thenReturn(call.getArgument(1));
+                        when(inventory.getTitle()).thenReturn(call.getArgument(2));
+                        return inventory;
+                    });
+            for (int step = 0; step < 3; step++) {
+                InventoryMenu next = mock(InventoryMenu.class);
+                int size = step == 0 ? 9 : 18;
+                when(next.size(player)).thenReturn(size);
+                when(next.resolveRowCount(player)).thenReturn(size / 9);
+                when(next.resolveTitle(player)).thenReturn("menu-" + step);
+
+                manager.open(player, next);
+
+                assertSame(next, manager.currentMenu(player));
+                verify(next).render(player, visible[0]);
+                if (previous != null) verify(previous).onClose(player, previousInventory);
+                previous = next;
+                previousInventory = visible[0];
+            }
+        }
+        verify(player, never()).closeInventory();
+        manager.close(player);
+        verify(player).closeInventory();
+        verify(previous).onClose(player, previousInventory);
+        assertNull(manager.currentMenu(player));
     }
 
     @Test

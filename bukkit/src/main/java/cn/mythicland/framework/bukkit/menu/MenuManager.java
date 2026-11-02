@@ -331,7 +331,6 @@ public final class MenuManager implements Listener, ManagedLifecycle, AutoClosea
                 this.replaceInventoryMenu(player, current, inventoryMenu);
                 return;
             }
-            this.closeNow(player);
         }
         MenuHolder holder = null;
         try {
