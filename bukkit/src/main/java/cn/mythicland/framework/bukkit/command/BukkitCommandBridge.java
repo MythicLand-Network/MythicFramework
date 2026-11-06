@@ -124,8 +124,8 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
             sender.sendMessage(NO_PERMISSION);
             return;
         }
-        if (usages.isEmpty()) sender.sendMessage("§c用法: /" + node.name());
-        for (String usage : usages) sender.sendMessage("§c用法: " + usage);
+        if (usages.isEmpty()) sender.sendMessage(VanillaCommandMessages.usage("/" + node.name()));
+        for (String usage : usages) sender.sendMessage(VanillaCommandMessages.usage(usage));
     }
 
     private void collectUsages(CommandSender sender, CommandNode node, Set<String> usages) {
