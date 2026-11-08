@@ -2,6 +2,7 @@ package cn.mythicland.framework.bukkit.store;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.UnaryOperator;
 
@@ -20,6 +21,8 @@ public final class StoredPlayerSession<P, I> {
     private boolean inventoryDirty;
     private boolean profileFlushInProgress;
     private boolean inventoryFlushInProgress;
+    private CompletableFuture<Void> transaction;
+    private StoredPlayerFlush<P, I> appliedTransaction;
 
     public StoredPlayerSession(StoredPlayerData<P, I> playerState, StoredPlayerProfile<P> profileVersioner) {
         this.uniqueId = playerState.uniqueId();
@@ -96,6 +99,7 @@ public final class StoredPlayerSession<P, I> {
     }
 
     public synchronized StoredPlayerFlush<P, I> prepareFlush() {
+        if (this.transaction != null) return null;
         boolean flushProfile = this.profileDirty && !this.profileFlushInProgress;
         boolean flushInventory = this.inventoryDirty && !this.inventoryFlushInProgress;
         if (!flushProfile && !flushInventory) return null;
@@ -147,5 +151,37 @@ public final class StoredPlayerSession<P, I> {
 
     public synchronized boolean hasPendingChanges() {
         return this.profileDirty || this.inventoryDirty;
+    }
+
+    public synchronized CompletableFuture<Void> transaction() {
+        return this.transaction;
+    }
+
+    synchronized boolean reserveTransaction(CompletableFuture<Void> completion) {
+        if (this.transaction != null) return false;
+        this.transaction = completion;
+        return true;
+    }
+
+    synchronized void releaseTransaction() {
+        this.transaction = null;
+        this.appliedTransaction = null;
+    }
+
+    synchronized StoredPlayerFlush<P, I> transactionRequest(UnaryOperator<P> change, I inventory) {
+        return new StoredPlayerFlush<>(this.uniqueId, change.apply(this.profileData), inventory,
+                this.profileVersioner.version(this.profileData), this.inventoryVersion,
+                this.profileRevision, this.inventoryRevision, true, true);
+    }
+
+    synchronized void transactionSucceeded(UnaryOperator<P> change, StoredPlayerFlush<P, I> request) {
+        if (this.appliedTransaction == request) return;
+        boolean profileUnchanged = this.profileRevision == request.profileRevision();
+        this.updateProfile(change);
+        this.captureInventory(request.inventoryData());
+        this.flushSucceeded(new StoredPlayerFlush<>(request.uniqueId(), request.profileData(), request.inventoryData(),
+                request.profileVersion(), request.inventoryVersion(),
+                profileUnchanged ? this.profileRevision : request.profileRevision(), this.inventoryRevision, true, true));
+        this.appliedTransaction = request;
     }
 }

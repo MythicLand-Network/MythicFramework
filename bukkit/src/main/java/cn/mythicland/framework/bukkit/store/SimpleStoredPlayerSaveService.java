@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.UnaryOperator;
@@ -40,6 +42,10 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     private long ticksUntilCapture;
     private volatile StoredPlayerCache<P, I> activeCache;
     private volatile boolean acceptingAsyncFlushes;
+    private final Queue<Runnable> transactionCompletions = new ConcurrentLinkedQueue<>();
+    private final Queue<Runnable> transactionRetries = new ConcurrentLinkedQueue<>();
+    private final AtomicBoolean transactionsStopping = new AtomicBoolean();
+    private final AtomicInteger transactionWorkers = new AtomicInteger();
 
     public SimpleStoredPlayerSaveService(
             Logger logger,
@@ -70,6 +76,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     public void start(StoredPlayerCache<P, I> cache) {
         if (this.flushTask != null) return;
         this.acceptingAsyncFlushes = true;
+        this.transactionsStopping.set(false);
         this.activeCache = cache;
         this.ticksUntilCapture = 0;
         this.flushTask = this.taskScheduler.scheduleSyncRepeating(
@@ -139,7 +146,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         cache.cancelLoading(playerUniqueId, player);
         StoredPlayerSession<P, I> session = cache.removeSession(playerUniqueId);
         if (session == null) return;
-        session.captureInventory(
+        if (session.transaction() == null) session.captureInventory(
                 this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
                         session.snapshot().inventoryData())
         );
@@ -159,6 +166,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         if (player == null) return;
         StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
         if (session == null) return;
+        if (session.transaction() != null) return;
         session.captureInventory(
                 this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
                         session.snapshot().inventoryData())
@@ -189,6 +197,13 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     @Override
     public void shutdownAndFlush(StoredPlayerCache<P, I> cache, boolean announcePlayers) {
         this.acceptingAsyncFlushes = false;
+        this.transactionsStopping.set(true);
+        while (this.transactionWorkers.get() != 0 || !this.transactionCompletions.isEmpty() || !this.transactionRetries.isEmpty()) {
+            Runnable retry;
+            while ((retry = this.transactionRetries.poll()) != null) retry.run();
+            this.drainTransactionCompletions();
+            LockSupport.parkNanos(1000000L);
+        }
         this.stop();
         this.awaitFlushWorker();
         this.flushAllNow(cache, announcePlayers);
@@ -200,6 +215,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
     public boolean flushNow(UUID playerUniqueId, StoredPlayerCache<P, I> cache) {
         StoredPlayerSession<P, I> session = this.findFlushTarget(playerUniqueId, cache);
         if (session == null) return false;
+        if (session.transaction() != null) throw new IllegalStateException("Player transaction is pending: " + playerUniqueId);
         session.flushLock().lock();
         try {
             List<FlushContext<P, I>> contexts = this.collectFlushContexts(List.of(session));
@@ -249,6 +265,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Player transaction requires primary thread");
         StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
         if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
+        if (session.transaction() != null) throw new IllegalStateException("Player transaction is pending: " + player.getUniqueId());
         session.flushLock().lock();
         try {
             P previousProfile = session.profileData();
@@ -290,6 +307,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         for (Player player : changes.keySet()) {
             StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
             if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
+            if (session.transaction() != null) throw new IllegalStateException("Player transaction is pending: " + player.getUniqueId());
             sessions.put(player, session);
         }
         List<StoredPlayerSession<P, I>> lockedSessions = this.lockSessions(sessions.values());
@@ -331,6 +349,159 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         } finally {
             this.unlockSessions(lockedSessions);
         }
+    }
+
+    /**
+     * Stages Bukkit changes on the main thread and exposes them only after the background commit.
+     * Profile changes must be pure and rebasable; inventory changes must not publish external effects.
+     * The host must prevent inventory transfers and combat while a session has a reserved transaction.
+     */
+    public CompletableFuture<Void> transactTogetherAsync(
+            Map<Player, UnaryOperator<P>> changes,
+            StoredPlayerCache<P, I> cache,
+            Runnable inventoryChange,
+            Consumer<List<StoredPlayerFlush<P, I>>> commit
+    ) {
+        if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Player transaction requires primary thread");
+        if (this.transactionsStopping.get()) return CompletableFuture.failedFuture(new IllegalStateException("Player saves are stopping"));
+        changes = new LinkedHashMap<>(changes);
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        Map<Player, StoredPlayerSession<P, I>> sessions = new LinkedHashMap<>();
+        Map<Player, I> previous = new LinkedHashMap<>();
+        Map<Player, I> prepared = new LinkedHashMap<>();
+        try {
+            for (Player player : changes.keySet()) {
+                StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
+                if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
+                if (!session.reserveTransaction(completion)) throw new IllegalStateException("Player transaction already pending: " + player.getUniqueId());
+                sessions.put(player, session);
+                previous.put(player, this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player), session.snapshot().inventoryData()));
+            }
+            try {
+                inventoryChange.run();
+                for (Player player : changes.keySet()) {
+                    prepared.put(player, this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player), previous.get(player)));
+                }
+            } finally {
+                previous.forEach(this.inventoryAdapter::apply);
+            }
+        } catch (RuntimeException failure) {
+            sessions.values().forEach(StoredPlayerSession::releaseTransaction);
+            completion.completeExceptionally(failure);
+            return completion;
+        }
+        this.submitTransaction(changes, cache, sessions, prepared, commit, completion, null);
+        return completion;
+    }
+
+    private void submitTransaction(
+            Map<Player, UnaryOperator<P>> changes,
+            StoredPlayerCache<P, I> cache,
+            Map<Player, StoredPlayerSession<P, I>> sessions,
+            Map<Player, I> prepared,
+            Consumer<List<StoredPlayerFlush<P, I>>> commit,
+            CompletableFuture<Void> completion,
+            List<StoredPlayerFlush<P, I>> retry
+    ) {
+        this.transactionWorkers.incrementAndGet();
+        try {
+            this.ioExecutor.execute(() -> {
+                List<StoredPlayerSession<P, I>> locked = this.lockSessions(sessions.values());
+                List<StoredPlayerFlush<P, I>> requests = retry;
+                boolean committed = false;
+                try {
+                    if (requests == null) {
+                        requests = new ArrayList<>();
+                        for (var entry : sessions.entrySet()) requests.add(entry.getValue().transactionRequest(
+                                changes.get(entry.getKey()), prepared.get(entry.getKey())));
+                    }
+                    commit.accept(requests);
+                    committed = true;
+                    int index = 0;
+                    for (var entry : sessions.entrySet()) entry.getValue().transactionSucceeded(changes.get(entry.getKey()), requests.get(index++));
+                    this.completeTransaction(() -> this.applyTransaction(cache, sessions, prepared, completion, false), completion);
+                } catch (RuntimeException failure) {
+                    if (failure instanceof StoredPlayerCommitUncertainException || retry != null || committed) {
+                        List<StoredPlayerFlush<P, I>> original = requests;
+                        if (retry == null) this.logger.log(Level.SEVERE, "Player transaction commit is unresolved; retaining its resource reservation", failure);
+                        if (!this.transactionsStopping.get() || retry == null) this.retryTransaction(() ->
+                                this.submitTransaction(changes, cache, sessions, prepared, commit, completion, original));
+                        else this.logger.log(Level.SEVERE, "Player transaction remained unresolved during shutdown; database state must be reloaded", failure);
+                    } else {
+                        this.completeTransaction(() -> {
+                            sessions.values().forEach(StoredPlayerSession::releaseTransaction);
+                            this.flushSessionsAsync(sessions.values());
+                            completion.completeExceptionally(failure);
+                        }, completion);
+                    }
+                } finally {
+                    this.unlockSessions(locked);
+                    this.transactionWorkers.decrementAndGet();
+                }
+            });
+        } catch (RuntimeException failure) {
+            this.transactionWorkers.decrementAndGet();
+            if (retry != null) {
+                this.logger.log(Level.SEVERE, "Unresolved player transaction could not be resubmitted; retaining its resource reservation", failure);
+                return;
+            }
+            sessions.values().forEach(StoredPlayerSession::releaseTransaction);
+            completion.completeExceptionally(failure);
+        }
+    }
+
+    private void applyTransaction(
+            StoredPlayerCache<P, I> cache,
+            Map<Player, StoredPlayerSession<P, I>> sessions,
+            Map<Player, I> prepared,
+            CompletableFuture<Void> completion,
+            boolean retry
+    ) {
+        try {
+            for (var entry : sessions.entrySet()) {
+                Player player = entry.getKey();
+                if (player.isOnline() && cache.findSession(player.getUniqueId()) == entry.getValue())
+                    this.inventoryAdapter.apply(player, prepared.get(player));
+            }
+        } catch (RuntimeException failure) {
+            if (!retry) this.logger.log(Level.SEVERE, "Committed player inventory could not be applied; retaining its resource reservation", failure);
+            if (!this.transactionsStopping.get()) this.retryTransaction(() ->
+                    this.completeTransaction(() -> this.applyTransaction(cache, sessions, prepared, completion, true), completion));
+            return;
+        }
+        sessions.values().forEach(StoredPlayerSession::releaseTransaction);
+        for (var session : sessions.values()) {
+            this.pendingSessions.computeIfPresent(session.uniqueId(), (id, retained) ->
+                    retained == session && !retained.hasPendingChanges() ? null : retained);
+        }
+        this.flushSessionsAsync(sessions.values());
+        completion.complete(null);
+    }
+
+    private void retryTransaction(Runnable action) {
+        AtomicBoolean claimed = new AtomicBoolean();
+        Runnable retry = () -> {
+            if (claimed.compareAndSet(false, true)) action.run();
+        };
+        this.transactionRetries.add(retry);
+        this.taskScheduler.executeSyncLater(() -> {
+            this.transactionRetries.remove(retry);
+            retry.run();
+        }, 20L);
+    }
+
+    private void completeTransaction(Runnable action, CompletableFuture<Void> completion) {
+        Runnable guarded = () -> {
+            try { action.run(); }
+            catch (RuntimeException failure) { completion.completeExceptionally(failure); }
+        };
+        this.transactionCompletions.add(guarded);
+        this.taskScheduler.executeSync(this::drainTransactionCompletions);
+    }
+
+    private void drainTransactionCompletions() {
+        Runnable action;
+        while ((action = this.transactionCompletions.poll()) != null) action.run();
     }
 
     private StoredPlayerSession<P, I> findFlushTarget(UUID playerUniqueId, StoredPlayerCache<P, I> cache) {
@@ -375,6 +546,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         try {
             while (this.flushRequested.getAndSet(false)) {
                 for (StoredPlayerSession<P, I> session : this.collectRequestedSessionsSnapshot()) {
+                    if (session.transaction() != null) continue;
                     session.flushLock().lock();
                     try {
                         this.flushContexts(this.collectFlushContexts(List.of(session)), false);
