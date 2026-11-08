@@ -47,6 +47,19 @@ public final class NmsItemStackAccess {
         return Objects.equals(first, second);
     }
 
+    public static ItemStack copyWithUnbreakable(ItemStack item, boolean enabled) {
+        var copy = CraftItemStack.asNMSCopy(item);
+        NBTTagCompound tag = copy.hasTag() ? copy.getTag() : new NBTTagCompound();
+        tag.setBoolean("Unbreakable", enabled);
+        copy.setTag(tag);
+        return CraftItemStack.asBukkitCopy(copy);
+    }
+
+    public static boolean isUnbreakable(ItemStack item) {
+        var handle = read(item);
+        return handle != null && handle.hasTag() && handle.getTag().getBoolean("Unbreakable");
+    }
+
     public static void write(NBTTagCompound tag, DataOutput output, boolean canonical) throws IOException {
         output.writeByte(tag.getTypeId());
         output.writeUTF("");

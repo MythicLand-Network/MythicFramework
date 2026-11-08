@@ -1,5 +1,6 @@
 package cn.mythicland.framework.bukkit.item;
 
+import cn.mythicland.framework.bukkit.item.v1_8_R3.NmsItemStackAccess;
 import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 public final class ItemEditors {
     private static final Method MODERN_UNBREAKABLE_SETTER = modernUnbreakableMethod("setUnbreakable", boolean.class);
     private static final Method MODERN_UNBREAKABLE_GETTER = modernUnbreakableMethod("isUnbreakable");
+    private static final boolean LEGACY_ITEM_NBT_AVAILABLE = legacyItemNbtAvailable();
 
     private ItemEditors() {
     }
@@ -205,41 +207,30 @@ public final class ItemEditors {
     }
 
     private static ItemStack applyUnbreakableNbt(ItemStack itemStack, boolean enabled) {
+        if (!LEGACY_ITEM_NBT_AVAILABLE) return itemStack;
         if (itemStack == null || itemStack.getType() == Material.AIR) return itemStack;
         try {
-            Class<?> craftItemStackClass = Class.forName("org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack");
-            Class<?> nbtTagCompoundClass = Class.forName("net.minecraft.server.v1_8_R3.NBTTagCompound");
-            Object nmsStack = craftItemStackClass.getMethod("asNMSCopy", ItemStack.class).invoke(null, itemStack);
-            Method hasTagMethod = nmsStack.getClass().getMethod("hasTag");
-            Method getTagMethod = nmsStack.getClass().getMethod("getTag");
-            Object rootTag = Boolean.TRUE.equals(hasTagMethod.invoke(nmsStack))
-                    ? getTagMethod.invoke(nmsStack)
-                    : nbtTagCompoundClass.getConstructor().newInstance();
-            nbtTagCompoundClass.getMethod(
-                    "setBoolean",
-                    String.class,
-                    boolean.class
-            ).invoke(rootTag, "Unbreakable", enabled);
-            nmsStack.getClass().getMethod("setTag", nbtTagCompoundClass).invoke(nmsStack, rootTag);
-            return (ItemStack) craftItemStackClass.getMethod("asBukkitCopy", nmsStack.getClass())
-                    .invoke(null, nmsStack);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return NmsItemStackAccess.copyWithUnbreakable(itemStack, enabled);
+        } catch (LinkageError ignored) {
             return itemStack;
         }
     }
 
     private static Boolean readUnbreakableNbt(ItemStack itemStack) {
+        if (!LEGACY_ITEM_NBT_AVAILABLE) return null;
         try {
-            Class<?> craftItemStackClass = Class.forName("org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack");
-            Object nmsStack = craftItemStackClass.getMethod("asNMSCopy", ItemStack.class).invoke(null, itemStack);
-            Method hasTagMethod = nmsStack.getClass().getMethod("hasTag");
-            if (!Boolean.TRUE.equals(hasTagMethod.invoke(nmsStack))) return false;
-            Object rootTag = nmsStack.getClass().getMethod("getTag").invoke(nmsStack);
-            if (rootTag == null) return false;
-            Object value = rootTag.getClass().getMethod("getBoolean", String.class).invoke(rootTag, "Unbreakable");
-            return Boolean.TRUE.equals(value);
-        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return NmsItemStackAccess.isUnbreakable(itemStack);
+        } catch (LinkageError ignored) {
             return null;
+        }
+    }
+
+    private static boolean legacyItemNbtAvailable() {
+        try {
+            Class.forName("org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack", false, ItemEditors.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return false;
         }
     }
 
