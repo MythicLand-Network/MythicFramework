@@ -29,15 +29,34 @@ public final class GridPathfinder {
         this.costs.defaultReturnValue(Double.POSITIVE_INFINITY);
     }
 
-    @FunctionalInterface
-    public interface Traversal {
-        boolean allows(int fromX, int fromY, int fromZ, int toX, int toY, int toZ);
+    private static long key(int x, int y, int z) {
+        return ((long) x & 0x3ffffffL) << 38 | ((long) z & 0x3ffffffL) << 12 | y & 0xfffL;
+    }
+
+    private static int x(long key) {
+        return (int) (key >> 38);
+    }
+
+    private static int y(long key) {
+        return (int) (key & 0xfffL);
+    }
+
+    private static int z(long key) {
+        return (int) (key << 26 >> 38);
     }
 
     public boolean canWalkDirectly(Location start, Location goal) {
         if (!start.getWorld().equals(goal.getWorld())) return false;
         if (start.getBlockY() != goal.getBlockY()) return false;
-        return direct(start.getWorld(), start.getX(), start.getBlockY(), start.getZ(), goal.getX(), goal.getZ(), false);
+        return direct(
+                start.getWorld(),
+                start.getX(),
+                start.getBlockY(),
+                start.getZ(),
+                goal.getX(),
+                goal.getZ(),
+                false
+        );
     }
 
     public boolean isWalkable(Location location) {
@@ -46,7 +65,13 @@ public final class GridPathfinder {
         return walkable(world, location.getBlockX(), location.getBlockY(), location.getBlockZ(), false);
     }
 
-    public List<Location> find(Location start, Location goal, int budget, double arrivalHeight, Traversal traversal) {
+    public List<Location> find(
+            Location start,
+            Location goal,
+            int budget,
+            double arrivalHeight,
+            Traversal traversal
+    ) {
         if (budget <= 0) throw new IllegalArgumentException("search budget must be positive");
         if (!start.getWorld().equals(goal.getWorld())) throw new IllegalArgumentException("path worlds differ");
         this.costs.clear();
@@ -97,17 +122,32 @@ public final class GridPathfinder {
         return List.of();
     }
 
-    private boolean direct(World world, double sx, int sy, double sz, double gx, double gz, boolean cached) {
+    private boolean direct(
+            World world,
+            double sx,
+            int sy,
+            double sz,
+            double gx,
+            double gz,
+            boolean cached
+    ) {
         double dx = gx - sx, dz = gz - sz;
         double distance = Math.hypot(dx, dz);
         if (distance > 4) return false;
         int steps = Math.max(1, (int) Math.ceil(distance / .4));
+        // The four-block segment and its footprint fit within an 8x8 column mask, local to this check.
+        int minX = (int) Math.floor(Math.min(sx, gx) + FOOTPRINT[0]);
+        int minZ = (int) Math.floor(Math.min(sz, gz) + FOOTPRINT[0]);
+        long checked = 0;
         for (int step = 0; step <= steps; step++) {
             double px = sx + dx * step / steps, pz = sz + dz * step / steps;
             for (double ox : FOOTPRINT)
                 for (double oz : FOOTPRINT) {
                     int bx = (int) Math.floor(px + ox), bz = (int) Math.floor(pz + oz);
+                    long column = 1L << ((bx - minX) * 8 + bz - minZ);
+                    if ((checked & column) != 0) continue;
                     if (!world.isChunkLoaded(bx >> 4, bz >> 4) || !walkable(world, bx, sy, bz, cached)) return false;
+                    checked |= column;
                 }
         }
         return true;
@@ -166,19 +206,8 @@ public final class GridPathfinder {
         return result;
     }
 
-    private static long key(int x, int y, int z) {
-        return ((long) x & 0x3ffffffL) << 38 | ((long) z & 0x3ffffffL) << 12 | y & 0xfffL;
-    }
-
-    private static int x(long key) {
-        return (int) (key >> 38);
-    }
-
-    private static int y(long key) {
-        return (int) (key & 0xfffL);
-    }
-
-    private static int z(long key) {
-        return (int) (key << 26 >> 38);
+    @FunctionalInterface
+    public interface Traversal {
+        boolean allows(int fromX, int fromY, int fromZ, int toX, int toY, int toZ);
     }
 }

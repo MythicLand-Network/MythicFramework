@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -165,6 +168,108 @@ final class TickWorkQueueTest {
             return null;
         }).when(scheduler).executeSyncLater(any(), eq(1L));
         return new TickWorkQueue(scheduler, maxTasks, budgetNanos);
+    }
+
+    @Test
+    void stepsYieldWithoutConsumingTheNextTasksBudget() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        AtomicInteger steps = new AtomicInteger();
+        CompletableFuture<Void> completion = queue.runSteps(() -> {
+            queue.yieldBudget();
+            return steps.incrementAndGet() == 2;
+        });
+        CompletableFuture<Boolean> following = queue.submit(queue::hasBudget);
+
+        this.tick();
+        assertEquals(1, steps.get());
+        assertFalse(completion.isDone());
+        assertTrue(following.join());
+        this.tick();
+        assertEquals(2, steps.get());
+        assertTrue(completion.isDone());
+    }
+
+    @Test
+    void stopsStaleOrCancelledStepsAndPropagatesStepFailures() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        AtomicBoolean active = new AtomicBoolean(true);
+        AtomicInteger steps = new AtomicInteger();
+        CompletableFuture<Void> stale = queue.runSteps(() -> {
+            steps.incrementAndGet();
+            queue.yieldBudget();
+            return false;
+        }, active::get, () -> false);
+        this.tick();
+        active.set(false);
+        this.tick();
+        assertEquals(1, steps.get());
+        assertTrue(stale.isDone());
+
+        CompletableFuture<Void> cancelled = queue.runSteps(() -> {
+            steps.incrementAndGet();
+            return true;
+        });
+        cancelled.cancel(false);
+        CompletableFuture<Void> failed = queue.runSteps(() -> {
+            throw new IllegalStateException("Invalid step");
+        });
+        this.tick();
+        assertEquals(1, steps.get());
+        assertTrue(failed.isCompletedExceptionally());
+    }
+
+    @Test
+    void rechecksPriorityAndKeepsLowPriorityInlineWorkBehindNormalTasks() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        AtomicBoolean lowPriority = new AtomicBoolean();
+        List<String> completed = new ArrayList<>();
+        queue.runSteps(() -> {
+            completed.add("step");
+            lowPriority.set(true);
+            queue.yieldBudget();
+            return completed.size() > 1;
+        }, () -> true, lowPriority::get);
+        this.tick();
+        queue.execute(() -> {
+            completed.add("normal");
+            queue.executeIfRunning(() -> completed.add("inline"), false);
+            queue.executeIfRunning(() -> completed.add("low"), true);
+        });
+        this.tick();
+        assertEquals(List.of("step", "normal", "inline", "step"), completed);
+        this.tick();
+        assertEquals("low", completed.getLast());
+    }
+
+    @Test
+    void closeCancelsResultsAndDiscardsScheduledWork() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        AtomicInteger steps = new AtomicInteger();
+        CompletableFuture<Void> result = queue.runSteps(() -> steps.incrementAndGet() == 2);
+        CompletableFuture<Integer> submitted = queue.submit(steps::incrementAndGet);
+        queue.close();
+        queue.close();
+        this.tick();
+        assertEquals(0, steps.get());
+        assertTrue(result.isCancelled());
+        assertTrue(submitted.isCancelled());
+        assertTrue(this.ticks.isEmpty());
+        assertThrows(RejectedExecutionException.class, () -> queue.execute(() -> {
+        }));
+    }
+
+    @Test
+    void closingFromQueuedWorkAlsoRejectsInlineContinuations() {
+        TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
+        queue.execute(() -> {
+            queue.close();
+            assertFalse(queue.hasBudget());
+            assertThrows(RejectedExecutionException.class, () -> queue.executeIfRunning(
+                    () -> fail("Closed work must not continue inline"), false
+            ));
+        });
+        this.tick();
+        assertTrue(this.ticks.isEmpty());
     }
 
     private void tick() {

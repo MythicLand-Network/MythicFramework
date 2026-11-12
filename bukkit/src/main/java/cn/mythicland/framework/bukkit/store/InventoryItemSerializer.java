@@ -33,10 +33,7 @@ public class InventoryItemSerializer {
     }
 
     public static ItemStack copyItem(ItemStack item) {
-        if (item == null) return null;
-        if (item.getClass() != ItemStack.class || item.getType() == Material.AIR || !item.hasItemMeta())
-            return item.clone();
-        return InventoryItemCodec.copy(item);
+        return InventoryItemCodec.copyItem(item);
     }
 
     public record DecodedItems(ItemStack[] items, int weight) {
@@ -49,6 +46,18 @@ public class InventoryItemSerializer {
     public String serializeItems(ItemStack[] items) {
         try {
             return InventoryItemCodec.encode(items);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to serialize inventory", exception);
+        }
+    }
+
+    public <K> InventorySnapshotSessions<K> snapshotSessions() {
+        return new InventorySnapshotSessions<>(this);
+    }
+
+    public String serializeItems(ItemStack[] items, InventoryItemCodec.SnapshotEncoder encoder) {
+        try {
+            return encoder.encode(items);
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to serialize inventory", exception);
         }

@@ -14,6 +14,59 @@ class GridPathfinderTest {
     }
 
     @Test
+    void directRouteReadsEachCoveredColumnOnceAndRechecksChangedBlocks() {
+        BlockWorld world = flatWorld();
+        GridPathfinder finder = new GridPathfinder();
+        Location start = new Location(world, .5, 64, .5), goal = new Location(world, 2.5, 64, .5);
+
+        assertTrue(finder.canWalkDirectly(start, goal));
+
+        for (int x = 0; x <= 2; x++) {
+            for (int y = 63; y <= 65; y++) verify(world).getBlockTypeIdAt(x, y, 0);
+        }
+        verify(world, times(9)).getBlockTypeIdAt(anyInt(), anyInt(), anyInt());
+        when(world.getBlockTypeIdAt(1, 64, 0)).thenReturn(Material.STONE.getId());
+        assertFalse(finder.canWalkDirectly(start, goal), "A new check must see the newly placed obstacle");
+    }
+
+    @Test
+    void directRouteKeepsFootprintEdgesAcrossNegativeCoordinatesAndDiagonals() {
+        BlockWorld world = flatWorld();
+        GridPathfinder finder = new GridPathfinder();
+        Location start = new Location(world, -2.99, 64, -.99), goal = new Location(world, 1.01, 64, -.99);
+        assertTrue(finder.canWalkDirectly(start, goal));
+        assertTrue(finder.canWalkDirectly(goal, start));
+        when(world.getBlockTypeIdAt(1, 64, -2)).thenReturn(Material.STONE.getId());
+        assertFalse(finder.canWalkDirectly(start, goal), "The far footprint edge must not alias an earlier column");
+        assertFalse(finder.canWalkDirectly(goal, start));
+        Location diagonalStart = new Location(world, -3.1, 64, -3.1), diagonalGoal = new Location(world, -.3, 64, -.3);
+        assertTrue(finder.canWalkDirectly(diagonalStart, diagonalGoal));
+        when(world.getBlockTypeIdAt(0, 65, 0)).thenReturn(Material.STONE.getId());
+        assertFalse(finder.canWalkDirectly(diagonalStart, diagonalGoal), "Headroom is required at the diagonal endpoint");
+    }
+
+    @Test
+    void directRouteDoesNotReadAcrossAnUnloadedChunkBoundary() {
+        BlockWorld world = flatWorld();
+        when(world.isChunkLoaded(1, 0)).thenReturn(false);
+        GridPathfinder finder = new GridPathfinder();
+
+        assertFalse(finder.canWalkDirectly(new Location(world, 15.5, 64, .5), new Location(world, 16.5, 64, .5)));
+
+        verify(world, never()).getBlockTypeIdAt(eq(16), anyInt(), anyInt());
+        verify(world, never()).getChunkAt(anyInt(), anyInt());
+    }
+
+    private static BlockWorld flatWorld() {
+        BlockWorld world = mock(BlockWorld.class);
+        when(world.getMaxHeight()).thenReturn(256);
+        when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+        when(world.getBlockTypeIdAt(anyInt(), anyInt(), anyInt())).thenAnswer(call ->
+                call.<Integer>getArgument(1) < 64 ? Material.STONE.getId() : Material.AIR.getId());
+        return world;
+    }
+
+    @Test
     void carpetRoutesUseTheGroundBelowAndRemainAtTheCarpetHeight() {
         BlockWorld world = mock(BlockWorld.class);
         when(world.getMaxHeight()).thenReturn(256);

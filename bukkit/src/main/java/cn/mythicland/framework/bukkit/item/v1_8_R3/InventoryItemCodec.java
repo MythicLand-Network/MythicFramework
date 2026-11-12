@@ -16,7 +16,9 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -33,28 +35,96 @@ public final class InventoryItemCodec {
         return CraftItemStack.asCraftMirror(handle);
     }
 
+    public static ItemStack copyItem(ItemStack item) {
+        if (item == null) return null;
+        if (item.getClass() != ItemStack.class || item.getType() == Material.AIR || !item.hasItemMeta())
+            return item.clone();
+        return copy(item);
+    }
+
     public static String encode(ItemStack[] items) throws IOException {
+        return encode(items.length, (index, output) -> writeItem(items[index], output));
+    }
+
+    private static String encode(int length, SlotWriter writer) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream header = new DataOutputStream(Base64.getEncoder().wrap(bytes))) {
             header.writeInt(MAGIC);
             header.writeByte(VERSION);
             try (DataOutputStream output = new DataOutputStream(
                     new BufferedOutputStream(new GZIPOutputStream(header)))) {
-                output.writeInt(items.length);
-                for (ItemStack item : items) {
-                    output.writeBoolean(item != null);
-                    if (item == null) continue;
-                    output.writeInt(item.getTypeId());
-                    output.writeInt(item.getAmount());
-                    output.writeShort(item.getDurability());
-                    net.minecraft.server.v1_8_R3.ItemStack handle = NmsItemStackAccess.read(item);
-                    NBTTagCompound tag = handle == null ? null : handle.getTag();
-                    output.writeBoolean(tag != null);
-                    if (tag != null) NmsItemStackAccess.write(tag, output, false);
-                }
+                output.writeInt(length);
+                for (int index = 0; index < length; index++) writer.write(index, output);
             }
         }
         return bytes.toString(StandardCharsets.US_ASCII);
+    }
+
+    private static void writeItem(ItemStack item, DataOutputStream output) throws IOException {
+        output.writeBoolean(item != null);
+        if (item == null) return;
+        output.writeInt(item.getTypeId());
+        output.writeInt(item.getAmount());
+        output.writeShort(item.getDurability());
+        net.minecraft.server.v1_8_R3.ItemStack handle = NmsItemStackAccess.read(item);
+        NBTTagCompound tag = handle == null ? null : handle.getTag();
+        output.writeBoolean(tag != null);
+        if (tag != null) NmsItemStackAccess.write(tag, output, false);
+    }
+
+    @FunctionalInterface
+    private interface SlotWriter {
+        void write(int index, DataOutputStream output) throws IOException;
+    }
+
+    /**
+     * Reuses the last encoded slot bytes for a single inventory on its owning thread.
+     */
+    public static final class SnapshotEncoder {
+        private static final int MAX_CACHED_SLOT_BYTES = 512 * 1024;
+
+        private ItemStack[] snapshot;
+        private byte[][] cachedSlots;
+        private String encoded;
+
+        public String encode(ItemStack[] items) throws IOException {
+            int firstChanged = this.snapshot == null ? 0 : Arrays.mismatch(items, this.snapshot);
+            if (firstChanged < 0) return this.encoded;
+
+            ItemStack[] nextSnapshot = new ItemStack[items.length];
+            byte[][] nextSlots = new byte[items.length][];
+            ByteArrayOutputStream slotBuffer = new ByteArrayOutputStream();
+            DataOutputStream slotOutput = new DataOutputStream(slotBuffer);
+            int[] remaining = {MAX_CACHED_SLOT_BYTES};
+            String nextEncoded = InventoryItemCodec.encode(items.length, (index, output) -> {
+                ItemStack item = items[index];
+                boolean unchanged = index < firstChanged || this.snapshot != null
+                        && index < this.snapshot.length && Objects.equals(item, this.snapshot[index]);
+                nextSnapshot[index] = unchanged ? this.snapshot[index] : copyItem(item);
+                byte[] cached = unchanged ? this.cachedSlots[index] : null;
+                if (cached != null) {
+                    output.write(cached);
+                    if (cached.length <= remaining[0]) {
+                        nextSlots[index] = cached;
+                        remaining[0] -= cached.length;
+                    }
+                } else if (item == null || remaining[0] == 0) {
+                    writeItem(item, output);
+                } else {
+                    slotBuffer.reset();
+                    writeItem(item, slotOutput);
+                    slotBuffer.writeTo(output);
+                    if (slotBuffer.size() <= remaining[0]) {
+                        nextSlots[index] = slotBuffer.toByteArray();
+                        remaining[0] -= slotBuffer.size();
+                    }
+                }
+            });
+            this.snapshot = nextSnapshot;
+            this.cachedSlots = nextSlots;
+            this.encoded = nextEncoded;
+            return nextEncoded;
+        }
     }
 
     public static final class Reader implements Closeable {

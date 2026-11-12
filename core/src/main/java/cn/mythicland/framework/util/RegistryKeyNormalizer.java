@@ -12,8 +12,17 @@ public final class RegistryKeyNormalizer {
         if (trimmed.isBlank()) return trimmed;
         if (trimmed.indexOf('_') >= 0) return trimmed.toLowerCase(Locale.ROOT);
 
+        int unchanged = 0;
+        while (unchanged < trimmed.length()) {
+            char current = trimmed.charAt(unchanged);
+            if ((current < 'a' || current > 'z') && (current < '0' || current > '9')) break;
+            unchanged++;
+        }
+        if (unchanged == trimmed.length()) return trimmed;
+
         StringBuilder normalized = new StringBuilder(trimmed.length() + 8);
-        for (int index = 0; index < trimmed.length(); index++) {
+        normalized.append(trimmed, 0, unchanged);
+        for (int index = unchanged; index < trimmed.length(); index++) {
             char current = trimmed.charAt(index);
             if (Character.isUpperCase(current)) {
                 boolean hasPrevious = index > 0;

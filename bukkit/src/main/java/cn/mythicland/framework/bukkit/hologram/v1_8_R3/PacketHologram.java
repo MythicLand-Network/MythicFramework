@@ -1,5 +1,6 @@
 package cn.mythicland.framework.bukkit.hologram.v1_8_R3;
 
+import cn.mythicland.framework.bukkit.hologram.HologramDisplay;
 import net.minecraft.server.v1_8_R3.*;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
@@ -11,7 +12,7 @@ import org.bukkit.util.Vector;
 import java.util.*;
 import java.util.stream.Stream;
 
-public class PacketHologram {
+public class PacketHologram implements HologramDisplay {
     private final double entityAttackDistance;
     private final double clickDistance;
     private final List<EntityArmorStand> stands;
