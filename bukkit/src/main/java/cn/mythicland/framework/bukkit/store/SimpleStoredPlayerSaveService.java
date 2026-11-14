@@ -146,10 +146,12 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         cache.cancelLoading(playerUniqueId, player);
         StoredPlayerSession<P, I> session = cache.removeSession(playerUniqueId);
         if (session == null) return;
-        if (session.transaction() == null) session.captureInventory(
-                this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
-                        session.snapshot().inventoryData())
-        );
+        if (!session.stagesInventoryTransaction()) {
+            session.captureInventory(this.inventoryAdapter.mergeCaptured(
+                    this.inventoryAdapter.capture(player),
+                    session.snapshot().inventoryData()
+            ));
+        }
         beforeFlush.accept(session);
         this.pendingSessions.put(playerUniqueId, session);
         this.flushSessionsAsync(List.of(session));
@@ -166,7 +168,7 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
         if (player == null) return;
         StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
         if (session == null) return;
-        if (session.transaction() != null) return;
+        if (session.stagesInventoryTransaction()) return;
         session.captureInventory(
                 this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player),
                         session.snapshot().inventoryData())
@@ -362,8 +364,29 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             Runnable inventoryChange,
             Consumer<List<StoredPlayerFlush<P, I>>> commit
     ) {
+        return this.stageTransaction(changes, cache, inventoryChange, commit, true);
+    }
+
+    public CompletableFuture<Void> transactProfileAsync(
+            Player player,
+            UnaryOperator<P> change,
+            StoredPlayerCache<P, I> cache,
+            Consumer<List<StoredPlayerFlush<P, I>>> commit
+    ) {
+        return this.stageTransaction(Map.of(player, change), cache, () -> {}, commit, false);
+    }
+
+    private CompletableFuture<Void> stageTransaction(
+            Map<Player, UnaryOperator<P>> changes,
+            StoredPlayerCache<P, I> cache,
+            Runnable inventoryChange,
+            Consumer<List<StoredPlayerFlush<P, I>>> commit,
+            boolean stageInventory
+    ) {
         if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Player transaction requires primary thread");
-        if (this.transactionsStopping.get()) return CompletableFuture.failedFuture(new IllegalStateException("Player saves are stopping"));
+        if (this.transactionsStopping.get()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Player saves are stopping"));
+        }
         changes = new LinkedHashMap<>(changes);
         CompletableFuture<Void> completion = new CompletableFuture<>();
         Map<Player, StoredPlayerSession<P, I>> sessions = new LinkedHashMap<>();
@@ -373,14 +396,25 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             for (Player player : changes.keySet()) {
                 StoredPlayerSession<P, I> session = cache.findSession(player.getUniqueId());
                 if (session == null) throw new IllegalStateException("Player data not loaded: " + player.getUniqueId());
-                if (!session.reserveTransaction(completion)) throw new IllegalStateException("Player transaction already pending: " + player.getUniqueId());
+                if (!session.reserveTransaction(completion, stageInventory)) {
+                    throw new IllegalStateException("Player transaction already pending: " + player.getUniqueId());
+                }
                 sessions.put(player, session);
-                previous.put(player, this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player), session.snapshot().inventoryData()));
+                if (stageInventory) {
+                    previous.put(player, this.inventoryAdapter.mergeCaptured(
+                            this.inventoryAdapter.capture(player),
+                            session.snapshot().inventoryData()
+                    ));
+                }
             }
             try {
                 inventoryChange.run();
-                for (Player player : changes.keySet()) {
-                    prepared.put(player, this.inventoryAdapter.mergeCaptured(this.inventoryAdapter.capture(player), previous.get(player)));
+                for (var entry : previous.entrySet()) {
+                    Player player = entry.getKey();
+                    prepared.put(player, this.inventoryAdapter.mergeCaptured(
+                            this.inventoryAdapter.capture(player),
+                            entry.getValue()
+                    ));
                 }
             } finally {
                 previous.forEach(this.inventoryAdapter::apply);
@@ -458,10 +492,10 @@ public final class SimpleStoredPlayerSaveService<P, I> implements StoredPlayerSa
             boolean retry
     ) {
         try {
-            for (var entry : sessions.entrySet()) {
+            for (var entry : prepared.entrySet()) {
                 Player player = entry.getKey();
-                if (player.isOnline() && cache.findSession(player.getUniqueId()) == entry.getValue())
-                    this.inventoryAdapter.apply(player, prepared.get(player));
+                if (!player.isOnline() || cache.findSession(player.getUniqueId()) != sessions.get(player)) continue;
+                this.inventoryAdapter.apply(player, entry.getValue());
             }
         } catch (RuntimeException failure) {
             if (!retry) this.logger.log(Level.SEVERE, "Committed player inventory could not be applied; retaining its resource reservation", failure);

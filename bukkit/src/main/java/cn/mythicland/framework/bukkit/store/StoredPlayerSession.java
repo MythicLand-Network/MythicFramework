@@ -22,6 +22,7 @@ public final class StoredPlayerSession<P, I> {
     private boolean profileFlushInProgress;
     private boolean inventoryFlushInProgress;
     private CompletableFuture<Void> transaction;
+    private boolean transactionStagesInventory;
     private StoredPlayerFlush<P, I> appliedTransaction;
 
     public StoredPlayerSession(StoredPlayerData<P, I> playerState, StoredPlayerProfile<P> profileVersioner) {
@@ -157,31 +158,54 @@ public final class StoredPlayerSession<P, I> {
         return this.transaction;
     }
 
-    synchronized boolean reserveTransaction(CompletableFuture<Void> completion) {
+    synchronized boolean stagesInventoryTransaction() {
+        return this.transaction != null && this.transactionStagesInventory;
+    }
+
+    synchronized boolean reserveTransaction(CompletableFuture<Void> completion, boolean stageInventory) {
         if (this.transaction != null) return false;
         this.transaction = completion;
+        this.transactionStagesInventory = stageInventory;
         return true;
     }
 
     synchronized void releaseTransaction() {
         this.transaction = null;
+        this.transactionStagesInventory = false;
         this.appliedTransaction = null;
     }
 
     synchronized StoredPlayerFlush<P, I> transactionRequest(UnaryOperator<P> change, I inventory) {
-        return new StoredPlayerFlush<>(this.uniqueId, change.apply(this.profileData), inventory,
-                this.profileVersioner.version(this.profileData), this.inventoryVersion,
-                this.profileRevision, this.inventoryRevision, true, true);
+        return new StoredPlayerFlush<>(
+                this.uniqueId,
+                change.apply(this.profileData),
+                inventory,
+                this.profileVersioner.version(this.profileData),
+                this.inventoryVersion,
+                this.profileRevision,
+                this.inventoryRevision,
+                true,
+                this.transactionStagesInventory
+        );
     }
 
     synchronized void transactionSucceeded(UnaryOperator<P> change, StoredPlayerFlush<P, I> request) {
         if (this.appliedTransaction == request) return;
         boolean profileUnchanged = this.profileRevision == request.profileRevision();
         this.updateProfile(change);
-        this.captureInventory(request.inventoryData());
-        this.flushSucceeded(new StoredPlayerFlush<>(request.uniqueId(), request.profileData(), request.inventoryData(),
-                request.profileVersion(), request.inventoryVersion(),
-                profileUnchanged ? this.profileRevision : request.profileRevision(), this.inventoryRevision, true, true));
+        if (request.flushInventory()) this.captureInventory(request.inventoryData());
+        long committedProfileRevision = profileUnchanged ? this.profileRevision : request.profileRevision();
+        this.flushSucceeded(new StoredPlayerFlush<>(
+                request.uniqueId(),
+                request.profileData(),
+                request.inventoryData(),
+                request.profileVersion(),
+                request.inventoryVersion(),
+                committedProfileRevision,
+                this.inventoryRevision,
+                true,
+                request.flushInventory()
+        ));
         this.appliedTransaction = request;
     }
 }
