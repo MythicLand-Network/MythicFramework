@@ -57,7 +57,7 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
     private void execute(CommandSender sender, String label, String[] arguments) {
         CommandPath.Match<CommandNode> match = CommandPath.walk(
                 this.spec.root(), arguments, arguments.length, CommandNode::child,
-                child -> this.hasPermission(sender, child)
+                child -> child.canUse(sender)
         );
         if (match.denied()) {
             sender.sendMessage(NO_PERMISSION);
@@ -65,7 +65,7 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
         }
         CommandNode current = match.node();
         int index = match.consumed();
-        if (!this.hasPermission(sender, current)) {
+        if (!current.canUse(sender)) {
             sender.sendMessage(NO_PERMISSION);
             return;
         }
@@ -87,20 +87,20 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
         int pathTokens = Math.max(0, arguments.length - 1);
         CommandPath.Match<CommandNode> match = CommandPath.walk(
                 this.spec.root(), arguments, pathTokens, CommandNode::child,
-                child -> this.hasPermission(sender, child)
+                child -> child.canUse(sender)
         );
         if (match.denied()) return List.of();
         CommandNode current = match.node();
         int consumed = match.consumed();
         if (consumed < pathTokens && !current.canExecute()) return List.of();
-        if (!this.hasPermission(sender, current)) return List.of();
+        if (!current.canUse(sender)) return List.of();
         String prefix = arguments.length == 0 ? "" : arguments[arguments.length - 1];
         int argumentIndex = Math.max(0, arguments.length - consumed - 1);
         CommandContext context = new CommandContext(sender, label,
                 arguments.length == 0 ? List.of() : Arrays.asList(arguments).subList(consumed, arguments.length));
         Set<String> values = new LinkedHashSet<>();
         for (CommandNode child : current.children()) {
-            if (this.hasPermission(sender, child)) values.add(child.name());
+            if (child.canUse(sender)) values.add(child.name());
         }
         if (current.canExecute() && argumentIndex < current.maxArguments()) {
             List<SuggestionProvider> suggestions = current.argumentSuggestions();
@@ -129,7 +129,7 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
     }
 
     private void collectUsages(CommandSender sender, CommandNode node, Set<String> usages) {
-        if (!this.hasPermission(sender, node)) return;
+        if (!node.canUse(sender)) return;
         usages.addAll(node.usages());
         for (CommandNode child : node.children()) this.collectUsages(sender, child, usages);
     }
@@ -140,9 +140,5 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
             if (this.hasDeclaredUsage(child)) return true;
         }
         return false;
-    }
-
-    private boolean hasPermission(CommandSender sender, CommandNode node) {
-        return node.permission() == null || node.permission().isBlank() || sender.hasPermission(node.permission());
     }
 }

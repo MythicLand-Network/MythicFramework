@@ -1,5 +1,7 @@
 package cn.mythicland.framework.bukkit.command;
 
+import org.bukkit.command.CommandSender;
+
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -53,6 +55,11 @@ public final class CommandNode {
 
     public String name() {
         return this.name;
+    }
+
+    public boolean canUse(CommandSender sender) {
+        String permission = this.permission();
+        return permission == null || permission.isBlank() || sender.hasPermission(permission);
     }
 
     public String permission() {

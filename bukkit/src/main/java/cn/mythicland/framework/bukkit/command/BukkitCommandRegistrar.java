@@ -29,23 +29,23 @@ public final class BukkitCommandRegistrar {
             ComponentResolver componentResolver
     ) {
         CommandRouteCompiler compiler = new CommandRouteCompiler(componentResolver);
-        Map<String, CommandSpec> specs = new LinkedHashMap<>();
-        for (AbstractCommand command : commands) {
-            for (CommandSpec compiled : compiler.compileAll(command)) {
-                specs.merge(compiled.rootName().toLowerCase(), compiled, CommandSpec::merge);
-            }
-        }
+        return registerCompiled(plugin, compiler.compileRoots(commands).values()).registration();
+    }
+
+    public static RegisteredCommands registerCompiled(JavaPlugin plugin, Collection<CommandSpec> specs) {
         BukkitRegistration registration = new BukkitRegistration();
+        Map<PluginCommand, CommandSpec> bindings = new LinkedHashMap<>();
         try {
-            for (CommandSpec spec : specs.values()) {
+            for (CommandSpec spec : specs) {
                 PluginCommand pluginCommand = plugin.getCommand(spec.rootName());
                 if (pluginCommand == null) {
                     throw new IllegalStateException("Command is missing from plugin.yml: " + spec.rootName());
                 }
                 BukkitCommandBridge bridge = new BukkitCommandBridge(plugin, spec);
                 registration.registerCommand(pluginCommand, bridge, bridge);
+                bindings.put(pluginCommand, spec);
             }
-            return registration;
+            return new RegisteredCommands(registration, bindings);
         } catch (RuntimeException | Error exception) {
             try {
                 registration.close();
@@ -53,6 +53,20 @@ public final class BukkitCommandRegistrar {
                 exception.addSuppressed(rollbackFailure);
             }
             throw exception;
+        }
+    }
+
+    public record RegisteredCommands(
+            BukkitRegistration registration,
+            Map<PluginCommand, CommandSpec> bindings
+    ) implements AutoCloseable {
+        public RegisteredCommands {
+            bindings = Map.copyOf(bindings);
+        }
+
+        @Override
+        public void close() {
+            this.registration.close();
         }
     }
 }

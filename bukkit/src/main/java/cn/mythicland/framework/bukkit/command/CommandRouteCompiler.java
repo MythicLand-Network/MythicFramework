@@ -30,6 +30,16 @@ public final class CommandRouteCompiler {
         return compiled.getFirst();
     }
 
+    public Map<String, CommandSpec> compileRoots(Collection<? extends AbstractCommand> commands) {
+        Map<String, CommandSpec> roots = new LinkedHashMap<>();
+        for (AbstractCommand command : commands) {
+            for (CommandSpec spec : this.compileAll(command)) {
+                roots.merge(spec.rootName().toLowerCase(Locale.ROOT), spec, CommandSpec::merge);
+            }
+        }
+        return Collections.unmodifiableMap(roots);
+    }
+
     public List<CommandSpec> compileAll(AbstractCommand command) {
         if (command == null) throw new IllegalArgumentException("Command component cannot be null");
         if (command.getClass().isAnnotationPresent(CommandBinding.class)) return List.of(this.compileBound(command));
