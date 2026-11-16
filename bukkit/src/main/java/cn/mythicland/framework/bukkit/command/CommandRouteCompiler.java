@@ -11,9 +11,15 @@ import java.util.*;
 @InjectComponent
 public final class CommandRouteCompiler {
     private final ComponentResolver componentResolver;
+    private final SuggestionProvider onlinePlayers;
 
     public CommandRouteCompiler(ComponentResolver componentResolver) {
+        this(componentResolver, SuggestionProvider.onlinePlayers());
+    }
+
+    private CommandRouteCompiler(ComponentResolver componentResolver, SuggestionProvider onlinePlayers) {
         this.componentResolver = componentResolver;
+        this.onlinePlayers = onlinePlayers;
     }
 
     public CommandSpec compileBound(Object component) {
@@ -38,6 +44,14 @@ public final class CommandRouteCompiler {
             }
         }
         return Collections.unmodifiableMap(roots);
+    }
+
+    public Map<String, CommandSpec> compileRoots(
+            Collection<? extends AbstractCommand> commands,
+            SuggestionProvider onlinePlayers
+    ) {
+        return new CommandRouteCompiler(this.componentResolver, Objects.requireNonNull(onlinePlayers))
+                .compileRoots(commands);
     }
 
     public List<CommandSpec> compileAll(AbstractCommand command) {
@@ -234,7 +248,7 @@ public final class CommandRouteCompiler {
     private SuggestionProvider createProvider(CommandArgument argument) {
         return switch (argument.source()) {
             case NONE -> SuggestionProvider.empty();
-            case ONLINE_PLAYERS -> SuggestionProvider.onlinePlayers();
+            case ONLINE_PLAYERS -> this.onlinePlayers;
             case STATIC_VALUES -> SuggestionProvider.staticValues(argument.values());
             case COMPONENT -> {
                 if (this.componentResolver == null) {
