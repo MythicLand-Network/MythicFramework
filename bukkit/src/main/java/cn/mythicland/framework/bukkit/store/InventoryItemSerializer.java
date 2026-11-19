@@ -143,7 +143,7 @@ public class InventoryItemSerializer {
         ItemStack[] items();
     }
 
-    public static final class ArrayDecoder implements PreparedItems {
+    public static final class ArrayDecoder implements PreparedItems, AutoCloseable {
         private final String encoded;
         private final byte[] raw;
         private final Cache<String, InventoryItemSerializer.DecodedItems> cache;
@@ -178,6 +178,18 @@ public class InventoryItemSerializer {
             return this.items;
         }
 
+        @Override
+        public void close() {
+            try {
+                if (this.input != null) this.input.close();
+            } catch (IOException exception) {
+                throw new IllegalStateException("Failed to close inventory decoder", exception);
+            } finally {
+                this.input = null;
+                this.phase = Phase.DONE;
+            }
+        }
+
         private void advanceStep() {
             try {
                 switch (this.phase) {
@@ -204,6 +216,7 @@ public class InventoryItemSerializer {
                         this.index = 0;
                         this.input.finish();
                         this.weight = this.input.weight();
+                        this.input = null;
                         if (InventoryItemSerializer.cacheWeight(this.encoded, this.weight) >
                                 InventoryItemSerializer.DECODE_CACHE_WEIGHT) {
                             this.cached = null;

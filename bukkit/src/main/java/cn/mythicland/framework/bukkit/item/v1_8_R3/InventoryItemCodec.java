@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -43,16 +44,20 @@ public final class InventoryItemCodec {
     }
 
     public static String encode(ItemStack[] items) throws IOException {
-        return encode(items.length, (index, output) -> writeItem(items[index], output));
+        return encode(items.length, Deflater.DEFAULT_COMPRESSION, (index, output) -> writeItem(items[index], output));
     }
 
-    private static String encode(int length, SlotWriter writer) throws IOException {
+    private static String encode(
+            int length,
+            int compressionLevel,
+            SlotWriter writer
+    ) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream header = new DataOutputStream(Base64.getEncoder().wrap(bytes))) {
             header.writeInt(MAGIC);
             header.writeByte(VERSION);
             try (DataOutputStream output = new DataOutputStream(
-                    new BufferedOutputStream(new GZIPOutputStream(header)))) {
+                    new BufferedOutputStream(new InventoryGzipOutputStream(header, compressionLevel)))) {
                 output.writeInt(length);
                 for (int index = 0; index < length; index++) writer.write(index, output);
             }
@@ -72,13 +77,20 @@ public final class InventoryItemCodec {
         if (tag != null) NmsItemStackAccess.write(tag, output, false);
     }
 
+    private static final class InventoryGzipOutputStream extends GZIPOutputStream {
+        private InventoryGzipOutputStream(OutputStream output, int compressionLevel) throws IOException {
+            super(output);
+            this.def.setLevel(compressionLevel);
+        }
+    }
+
     @FunctionalInterface
     private interface SlotWriter {
         void write(int index, DataOutputStream output) throws IOException;
     }
 
     /**
-     * Reuses the last encoded slot bytes for a single inventory on its owning thread.
+     * Reuses slot bytes and favors compression speed for live snapshots on the inventory thread.
      */
     public static final class SnapshotEncoder {
         private static final int MAX_CACHED_SLOT_BYTES = 512 * 1024;
@@ -96,7 +108,7 @@ public final class InventoryItemCodec {
             ByteArrayOutputStream slotBuffer = new ByteArrayOutputStream();
             DataOutputStream slotOutput = new DataOutputStream(slotBuffer);
             int[] remaining = {MAX_CACHED_SLOT_BYTES};
-            String nextEncoded = InventoryItemCodec.encode(items.length, (index, output) -> {
+            String nextEncoded = InventoryItemCodec.encode(items.length, Deflater.BEST_SPEED, (index, output) -> {
                 ItemStack item = items[index];
                 boolean unchanged = index < firstChanged || this.snapshot != null
                         && index < this.snapshot.length && Objects.equals(item, this.snapshot[index]);
