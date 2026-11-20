@@ -51,6 +51,8 @@ project(':mythic-framework-core') {
         compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
         implementation 'it.unimi.dsi:fastutil:8.5.13'
         implementation 'com.google.code.gson:gson:2.11.0'
+        compileOnly 'com.aliyun:green20220302:3.6.8'
+        testImplementation 'com.aliyun:green20220302:3.6.8'
         implementation 'com.belerweb:pinyin4j:2.5.1'
         compileOnly 'org.apache.logging.log4j:log4j-core:2.24.3'
         compileOnly 'org.yaml:snakeyaml:2.2'

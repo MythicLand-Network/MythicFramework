@@ -76,6 +76,10 @@ public abstract class AbstractYamlConfig {
         return this.configuration;
     }
 
+    protected final JavaPlugin plugin() {
+        return this.plugin;
+    }
+
     protected final Logger logger() {
         return this.plugin.getLogger();
     }
