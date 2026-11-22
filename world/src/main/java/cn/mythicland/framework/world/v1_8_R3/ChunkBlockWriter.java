@@ -32,14 +32,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class ChunkBlockWriter {
     private final Chunk chunk;
-    private final ChunkSection[] sections;
+    private final char[][] edits;
+    private final BitSet tilePositions = new BitSet();
     private final BitSet positions = new BitSet(65536);
     private int sectionMask;
     private AtomicReference<ChunkSaveVerifier.Snapshot> saveSnapshot;
 
     public ChunkBlockWriter(org.bukkit.Chunk chunk) {
         this.chunk = ((CraftChunk) chunk).getHandle();
-        this.sections = this.chunk.getSections().clone();
+        this.edits = new char[this.chunk.getSections().length][];
     }
 
     public static BlockChange capture(World world, int x, int y, int z) {
@@ -83,18 +84,15 @@ public final class ChunkBlockWriter {
 
     public void set(int x, int y, int z, int id, int data) {
         int index = y >> 4;
-        if ((this.sectionMask & (1 << index)) == 0) {
-            ChunkSection old = this.sections[index];
-            char[] blocks = old == null ? new char[4096] : old.getIdArray().clone();
-            this.sections[index] = new ChunkSection(index << 4, !this.chunk.world.worldProvider.o(), blocks);
-            if (old != null) {
-                this.sections[index].a(old.getEmittedLightArray());
-                if (old.getSkyLightArray() != null) this.sections[index].b(old.getSkyLightArray());
-            }
+        if (this.edits[index] == null) {
+            this.edits[index] = new char[4096];
             this.sectionMask |= 1 << index;
         }
-        this.sections[index].setType(x & 15, y & 15, z & 15, Block.getByCombinedId(id | (data << 12)));
-        this.positions.set((y << 8) | ((z & 15) << 4) | (x & 15));
+        int position = (y << 8) | ((z & 15) << 4) | (x & 15);
+        var state = Block.getByCombinedId(id | (data << 12));
+        this.edits[index][position & 4095] = (char) Block.d.b(state);
+        this.positions.set(position);
+        this.tilePositions.set(position, state.getBlock().isTileEntity());
     }
 
     public void commit() {
@@ -103,28 +101,37 @@ public final class ChunkBlockWriter {
                         | ((position.getZ() & 15) << 4) | (position.getX() & 15)))
                 .toList();
         for (BlockPosition position : removed) this.chunk.world.t(position);
-        for (int index = 0; index < this.sections.length; index++) {
-            ChunkSection current = this.chunk.getSections()[index];
-            if ((this.sectionMask & (1 << index)) == 0) {
-                this.sections[index] = current;
-                continue;
-            }
-            char[] edited = this.sections[index].getIdArray();
-            char[] merged = current == null ? new char[4096] : current.getIdArray().clone();
+        ChunkSection[] sections = this.chunk.getSections().clone();
+        for (int index = 0; index < sections.length; index++) {
+            char[] edited = this.edits[index];
+            if (edited == null) continue;
+
+            ChunkSection current = sections[index];
+            char[] merged = new char[4096];
             int start = index << 12;
-            for (int position = this.positions.nextSetBit(start); position >= start && position < start + 4096;
-                 position = this.positions.nextSetBit(position + 1)) merged[position - start] = edited[position - start];
-            this.sections[index] = new ChunkSection(index << 4, !this.chunk.world.worldProvider.o(), merged);
-            if (current != null) {
-                this.sections[index].a(current.getEmittedLightArray());
-                if (current.getSkyLightArray() != null) this.sections[index].b(current.getSkyLightArray());
+            int end = start + merged.length;
+            if (this.positions.nextClearBit(start) >= end) {
+                System.arraycopy(edited, 0, merged, 0, merged.length);
+            } else {
+                if (current != null) System.arraycopy(current.getIdArray(), 0, merged, 0, merged.length);
+                for (int first = this.positions.nextSetBit(start); first >= 0 && first < end; ) {
+                    int next = Math.min(this.positions.nextClearBit(first), end);
+                    System.arraycopy(edited, first - start, merged, first - start, next - first);
+                    first = this.positions.nextSetBit(next);
+                }
             }
-            this.sections[index].recalcBlockCounts();
+            ChunkSection section = new ChunkSection(index << 4, !this.chunk.world.worldProvider.o(), merged);
+            if (current != null) {
+                section.a(current.getEmittedLightArray());
+                if (current.getSkyLightArray() != null) section.b(current.getSkyLightArray());
+            }
+            sections[index] = section;
         }
-        this.chunk.a(this.sections);
+        this.chunk.a(sections);
         this.chunk.initLighting();
         this.chunk.mustSave = true;
-        for (int position = this.positions.nextSetBit(0); position >= 0; position = this.positions.nextSetBit(position + 1)) {
+        for (int position = this.tilePositions.nextSetBit(0);
+             position >= 0; position = this.tilePositions.nextSetBit(position + 1)) {
             BlockPosition block = new BlockPosition((this.chunk.locX << 4) + (position & 15),
                     position >> 8, (this.chunk.locZ << 4) + ((position >> 4) & 15));
             if (this.chunk.getType(block).isTileEntity()) this.chunk.world.getTileEntity(block);
@@ -161,7 +168,7 @@ public final class ChunkBlockWriter {
 
     private ChunkSaveVerifier.Snapshot captureSave() {
         Map<Integer, char[]> expected = new HashMap<>();
-        for (int index = 0; index < this.sections.length; index++) {
+        for (int index = 0; index < this.edits.length; index++) {
             if ((this.sectionMask & (1 << index)) == 0) continue;
             ChunkSection section = this.chunk.getSections()[index];
             expected.put(index, section == null ? new char[4096] : section.getIdArray().clone());

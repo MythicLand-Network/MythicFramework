@@ -1,6 +1,5 @@
 package cn.mythicland.framework.bukkit.item.v1_8_R3;
 
-import cn.mythicland.framework.bukkit.item.v1_8_R3.NmsItemStackAccess;
 import net.minecraft.server.v1_8_R3.Item;
 import net.minecraft.server.v1_8_R3.NBTCompressedStreamTools;
 import net.minecraft.server.v1_8_R3.NBTTagCompound;
@@ -15,10 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.Objects;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -53,7 +49,7 @@ public final class InventoryItemCodec {
             SlotWriter writer
     ) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (DataOutputStream header = new DataOutputStream(Base64.getEncoder().wrap(bytes))) {
+        try (DataOutputStream header = new DataOutputStream(bytes)) {
             header.writeInt(MAGIC);
             header.writeByte(VERSION);
             try (DataOutputStream output = new DataOutputStream(
@@ -62,7 +58,7 @@ public final class InventoryItemCodec {
                 for (int index = 0; index < length; index++) writer.write(index, output);
             }
         }
-        return bytes.toString(StandardCharsets.US_ASCII);
+        return Base64.getEncoder().encodeToString(bytes.toByteArray());
     }
 
     private static void writeItem(ItemStack item, DataOutputStream output) throws IOException {
@@ -95,23 +91,46 @@ public final class InventoryItemCodec {
     public static final class SnapshotEncoder {
         private static final int MAX_CACHED_SLOT_BYTES = 512 * 1024;
 
+        private final int compressionLevel;
         private ItemStack[] snapshot;
         private byte[][] cachedSlots;
         private String encoded;
 
+        public SnapshotEncoder() {
+            this(Deflater.BEST_SPEED);
+        }
+
+        private SnapshotEncoder(int compressionLevel) {
+            this.compressionLevel = compressionLevel;
+        }
+
+        public static SnapshotEncoder withDefaultCompression() {
+            return new SnapshotEncoder(Deflater.DEFAULT_COMPRESSION);
+        }
+
         public String encode(ItemStack[] items) throws IOException {
-            int firstChanged = this.snapshot == null ? 0 : Arrays.mismatch(items, this.snapshot);
-            if (firstChanged < 0) return this.encoded;
+            int prefixLength = 0;
+            if (this.snapshot != null) {
+                int commonLength = Math.min(items.length, this.snapshot.length);
+                while (prefixLength < commonLength
+                        && NmsItemStackAccess.matches(items[prefixLength], this.snapshot[prefixLength])) {
+                    prefixLength++;
+                }
+                if (prefixLength == items.length && items.length == this.snapshot.length) return this.encoded;
+            }
+            int firstChanged = prefixLength;
 
             ItemStack[] nextSnapshot = new ItemStack[items.length];
             byte[][] nextSlots = new byte[items.length][];
             ByteArrayOutputStream slotBuffer = new ByteArrayOutputStream();
             DataOutputStream slotOutput = new DataOutputStream(slotBuffer);
             int[] remaining = {MAX_CACHED_SLOT_BYTES};
-            String nextEncoded = InventoryItemCodec.encode(items.length, Deflater.BEST_SPEED, (index, output) -> {
+            String nextEncoded = InventoryItemCodec.encode(items.length, this.compressionLevel, (index, output) -> {
                 ItemStack item = items[index];
-                boolean unchanged = index < firstChanged || this.snapshot != null
-                        && index < this.snapshot.length && Objects.equals(item, this.snapshot[index]);
+                boolean unchanged = index < firstChanged;
+                if (index > firstChanged && this.snapshot != null && index < this.snapshot.length) {
+                    unchanged = NmsItemStackAccess.matches(item, this.snapshot[index]);
+                }
                 nextSnapshot[index] = unchanged ? this.snapshot[index] : copyItem(item);
                 byte[] cached = unchanged ? this.cachedSlots[index] : null;
                 if (cached != null) {

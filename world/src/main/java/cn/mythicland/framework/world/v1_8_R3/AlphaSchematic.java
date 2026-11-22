@@ -143,6 +143,7 @@ public final class AlphaSchematic {
     }
 
     public NBTTagCompound tile(int x, int y, int z, int originX, int originY, int originZ) {
+        if (this.tiles.isEmpty()) return null;
         NBTTagCompound source = this.tiles.get(index(x, y, z));
         if (source == null) return null;
         NBTTagCompound tile = (NBTTagCompound) source.clone();
