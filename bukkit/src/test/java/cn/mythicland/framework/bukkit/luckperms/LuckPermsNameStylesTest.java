@@ -4,10 +4,12 @@ import cn.mythicland.framework.text.PlayerNameStyle;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedDataManager;
 import net.luckperms.api.cacheddata.CachedMetaData;
+import net.luckperms.api.cacheddata.CachedPermissionData;
 import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.model.user.UserManager;
 import net.luckperms.api.query.QueryOptions;
+import net.luckperms.api.util.Tristate;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -37,6 +39,21 @@ class LuckPermsNameStylesTest {
         when(this.user.getInheritedGroups(this.options)).thenReturn(List.of());
         assertTrue(this.styles.groupStyle(this.user, this.options, "staff").isEmpty());
         verify(this.user, never()).getCachedData();
+    }
+
+    @Test
+    void permissionListUsesAnyGrantedNodeInTheCurrentContext() {
+        this.staffPrefix("&6[Helper]");
+        when(this.user.getInheritedGroups(this.options)).thenReturn(List.of());
+        CachedPermissionData data = mock(CachedPermissionData.class);
+        when(this.user.getCachedData().getPermissionData(this.options)).thenReturn(data);
+        when(data.checkPermission("pit.moderator")).thenReturn(Tristate.FALSE);
+        when(data.checkPermission("pit.helper")).thenReturn(Tristate.TRUE, Tristate.UNDEFINED);
+        List<String> rules = List.of("group.staff", "pit.moderator", "pit.helper");
+
+        assertEquals("&6[Helper]", this.styles.permissionStyle(this.user, this.options, rules).orElseThrow().prefix());
+        assertTrue(this.styles.permissionStyle(this.user, this.options, rules).isEmpty());
+        verify(data, never()).checkPermission("group.staff");
     }
 
     @Test
