@@ -1,6 +1,7 @@
 package cn.mythicland.framework.bukkit.inventory;
 
 import org.bukkit.Material;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 public final class InventoryTransfer {
@@ -24,9 +25,7 @@ public final class InventoryTransfer {
             ItemStack existing = target[slot];
             if (!isEmpty(existing)) continue;
             int moved = Math.min(remaining.getMaxStackSize(), remaining.getAmount());
-            ItemStack placed = remaining.clone();
-            placed.setAmount(moved);
-            target[slot] = placed;
+            target[slot] = copyWithAmount(remaining, moved);
             remaining.setAmount(remaining.getAmount() - moved);
         }
         return isEmpty(remaining) ? null : remaining;
@@ -41,20 +40,50 @@ public final class InventoryTransfer {
             int capacity = Math.min(existing.getMaxStackSize(), source.getMaxStackSize()) - existing.getAmount();
             if (capacity <= 0 || !existing.isSimilar(source)) continue;
             int moved = Math.min(capacity, remaining);
-            ItemStack merged = existing.clone();
-            merged.setAmount(existing.getAmount() + moved);
-            target[slot] = merged;
+            target[slot] = copyWithAmount(existing, existing.getAmount() + moved);
             remaining -= moved;
         }
         for (int slot = 0; slot < target.length && remaining > 0; slot++) {
             if (!isEmpty(target[slot])) continue;
             int moved = Math.min(source.getMaxStackSize(), remaining);
-            ItemStack placed = source.clone();
-            placed.setAmount(moved);
-            target[slot] = placed;
+            target[slot] = copyWithAmount(source, moved);
             remaining -= moved;
         }
         return remaining;
+    }
+
+    /** Inserts into an inclusive slot range, merging existing stacks before filling empty slots. */
+    public static int insert(
+            Inventory target,
+            ItemStack source,
+            int amount,
+            int firstSlot,
+            int lastSlot
+    ) {
+        if (amount <= 0 || isEmpty(source)) return amount;
+        int remaining = amount;
+        for (int slot = firstSlot; slot <= lastSlot && remaining > 0; slot++) {
+            ItemStack existing = target.getItem(slot);
+            if (isEmpty(existing)) continue;
+            int capacity = Math.min(existing.getMaxStackSize(), source.getMaxStackSize()) - existing.getAmount();
+            if (capacity <= 0 || !existing.isSimilar(source)) continue;
+            int moved = Math.min(capacity, remaining);
+            target.setItem(slot, copyWithAmount(existing, existing.getAmount() + moved));
+            remaining -= moved;
+        }
+        for (int slot = firstSlot; slot <= lastSlot && remaining > 0; slot++) {
+            if (!isEmpty(target.getItem(slot))) continue;
+            int moved = Math.min(source.getMaxStackSize(), remaining);
+            target.setItem(slot, copyWithAmount(source, moved));
+            remaining -= moved;
+        }
+        return remaining;
+    }
+
+    private static ItemStack copyWithAmount(ItemStack item, int amount) {
+        ItemStack copy = item.clone();
+        copy.setAmount(amount);
+        return copy;
     }
 
     private static boolean isEmpty(ItemStack itemStack) {
