@@ -4,6 +4,7 @@ import cn.mythicland.framework.bukkit.menu.MenuManager;
 
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -18,10 +19,21 @@ public final class PlayerItemHoldings {
     }
 
     public int count(Player player, Predicate<ItemStack> matches) {
+        return this.count(player, matches, inventory -> this.count(inventory, matches));
+    }
+
+    /** The inventory counter counts matching items; the predicate also applies to the cursor. */
+    public int count(
+            Player player,
+            Predicate<ItemStack> matches,
+            ToIntFunction<Inventory> inventoryCounter
+    ) {
         ItemStack cursor = player.getItemOnCursor();
-        return this.count(player.getInventory(), matches)
-                + (this.matches(cursor, matches) ? cursor.getAmount() : 0)
-                + this.count(this.topInventory(player), matches);
+        int total = inventoryCounter.applyAsInt(player.getInventory());
+        if (this.matches(cursor, matches)) total += cursor.getAmount();
+        Inventory top = this.topInventory(player);
+        if (top != null) total += inventoryCounter.applyAsInt(top);
+        return total;
     }
 
     public boolean updateFirst(Player player, Predicate<ItemStack> matches, Consumer<ItemStack> update) {

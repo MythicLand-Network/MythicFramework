@@ -11,6 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.function.ToIntFunction;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -47,6 +49,21 @@ class PlayerItemHoldingsTest {
         assertEquals(3, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
         when(this.player.getOpenInventory().getTopInventory()).thenReturn(this.inventory);
         assertEquals(3, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
+    }
+
+    @Test
+    void inventoryCounterPreservesCursorContainerAndMenuRules() {
+        when(this.player.getItemOnCursor()).thenReturn(new ItemStack(Material.SLIME_BALL, 2));
+        ToIntFunction<Inventory> counter = inventory -> {
+            if (inventory == this.inventory) return 3;
+            assertSame(this.top, inventory);
+            return 4;
+        };
+        assertEquals(9, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
+        when(this.menus.isManagedInventory(this.top)).thenReturn(true);
+        assertEquals(5, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
+        when(this.player.getOpenInventory().getTopInventory()).thenReturn(this.inventory);
+        assertEquals(5, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
     }
 
     @Test
