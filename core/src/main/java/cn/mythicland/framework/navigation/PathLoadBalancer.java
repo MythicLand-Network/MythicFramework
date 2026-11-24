@@ -126,7 +126,9 @@ public final class PathLoadBalancer {
         return (this.project(new Member(0), x, y, z) + 1) % this.route.size();
     }
 
-    /** Returns -1 when the member has not been observed on the route in this tick. */
+    /**
+     * Returns -1 when the member has not been observed on the route in this tick.
+     */
     public int nextWaypoint(long id) {
         Member member = this.members.get(id);
         if (member == null || !member.onRoute || member.observedAt != this.tick) return -1;
@@ -141,7 +143,8 @@ public final class PathLoadBalancer {
             if (segment.length() == 0) continue;
             Point a = segment.start();
             double offsetX = x - a.x(), offsetZ = z - a.z();
-            double fraction = Math.clamp((offsetX * segment.dx() + offsetZ * segment.dz()) / segment.lengthSquared(), 0, 1);
+            double fraction =
+                    Math.clamp((offsetX * segment.dx() + offsetZ * segment.dz()) / segment.lengthSquared(), 0, 1);
             double distance = Math.pow(offsetX - segment.dx() * fraction, 2)
                     + Math.pow(offsetZ - segment.dz() * fraction, 2);
             if (distance >= nearest) continue;
@@ -245,7 +248,8 @@ public final class PathLoadBalancer {
             maximumGapError = Math.max(maximumGapError, Math.abs(gapError));
             if (this.adjusting) {
                 double coastingError = gapError + movementPerAdjustment / (2 * SPEED_RECOVERY_PER_ADJUSTMENT)
-                        * (Math.pow(1 - this.ordered[index].speedMultiplier, 2) - Math.pow(1 - nextMember.speedMultiplier, 2));
+                        * (Math.pow(1 - this.ordered[index].speedMultiplier, 2) -
+                        Math.pow(1 - nextMember.speedMultiplier, 2));
                 maximumCoastingGapError = Math.max(maximumCoastingGapError, Math.abs(coastingError));
             }
         }
@@ -280,14 +284,18 @@ public final class PathLoadBalancer {
     private double crossingSpeed(Member member, double minimumSpeedMultiplier) {
         if (this.routeSpeed <= 1e-6 || minimumSpeedMultiplier == 1) return 1;
         Crossing crossing = member.crossing;
-        double remainingPhase = this.wrap(crossing.goalPhase - crossing.phase + this.perimeter * .5) - this.perimeter * .5;
+        double remainingPhase =
+                this.wrap(crossing.goalPhase - crossing.phase + this.perimeter * .5) - this.perimeter * .5;
         if (remainingPhase <= 0) return 1;
         double arrivalTicks = remainingPhase / this.routeSpeed;
-        double travelTicks = Math.sqrt(this.distanceSquared(crossing.goalPhase, member.x, member.z)) / this.nominalSpeed();
+        double travelTicks =
+                Math.sqrt(this.distanceSquared(crossing.goalPhase, member.x, member.z)) / this.nominalSpeed();
         return Math.clamp(travelTicks / arrivalTicks, minimumSpeedMultiplier, 1);
     }
 
-    /** Returns the committed shortcut destination, or the nearest route position when displaced off the route. */
+    /**
+     * Returns the committed shortcut destination, or the nearest route position when displaced off the route.
+     */
     public Optional<Point> recoveryGoal(long id) {
         Member member = this.members.get(id);
         if (!this.enclosed || this.maximumStep == 0 || member == null || !this.ready(member)) return Optional.empty();
@@ -307,7 +315,9 @@ public final class PathLoadBalancer {
         if (member != null) this.finishCrossing(member);
     }
 
-    /** Leaves a budget-deferred member moving normally until a later recovery batch. */
+    /**
+     * Leaves a budget-deferred member moving normally until a later recovery batch.
+     */
     public void deferCrossing(long id) {
         Member member = this.members.get(id);
         if (member == null) return;
@@ -325,7 +335,8 @@ public final class PathLoadBalancer {
         int count = 0;
         for (Member member : this.snapshot) {
             if (!this.ready(member) || !member.onRoute || !member.consecutive || member.stationary
-                    || member.crossing != null || member.advance < 0 || member.advance > this.maximumStep * 1.5) continue;
+                    || member.crossing != null || member.advance < 0 || member.advance > this.maximumStep * 1.5)
+                continue;
             advance += member.advance;
             multipliers += member.speedMultiplier;
             count++;
@@ -347,7 +358,8 @@ public final class PathLoadBalancer {
             if (crossing == null) continue;
             crossing.phase = this.wrap(crossing.phase + shift);
             if (!this.ready(member) || this.tick >= crossing.deadline
-                    || member.onRoute && this.distanceSquared(crossing.goalPhase, member.x, member.z) <= arrivalMargin * arrivalMargin) {
+                    || member.onRoute &&
+                    this.distanceSquared(crossing.goalPhase, member.x, member.z) <= arrivalMargin * arrivalMargin) {
                 this.finishCrossing(member);
             } else if (this.tick - crossing.progressTick >= 40) {
                 double dx = member.x - crossing.x, dz = member.z - crossing.z;
@@ -396,7 +408,8 @@ public final class PathLoadBalancer {
             if (!this.recovering || capacity <= 0) return;
             double midpoint = this.recoveryOrder[gapIndex].formationPhase() + largestGap * .5;
             // Reserve positions on one moving, evenly spaced grid instead of repeatedly bisecting gaps.
-            double phase = this.wrap(this.recoveryOrigin + Math.rint((midpoint - this.recoveryOrigin) / spacing) * spacing);
+            double phase =
+                    this.wrap(this.recoveryOrigin + Math.rint((midpoint - this.recoveryOrigin) / spacing) * spacing);
             Point gapCenter = this.point(phase);
             double centerToGap = Math.hypot(gapCenter.x() - this.center.x(), gapCenter.z() - this.center.z());
             Arrays.fill(this.recoveryCandidates, -1);
@@ -415,9 +428,12 @@ public final class PathLoadBalancer {
                 if (member.onRoute && Math.abs(phaseOffset) < spacing * .75) continue;
                 double toCenter = Math.hypot(member.x - this.center.x(), member.z - this.center.z());
                 double oppositePhase = member.phase + this.perimeter * .5;
-                double centerTravel = toCenter + Math.sqrt(this.distanceSquared(oppositePhase, this.center.x(), this.center.z()));
+                double centerTravel =
+                        toCenter + Math.sqrt(this.distanceSquared(oppositePhase, this.center.x(), this.center.z()));
                 double centralPhase = oppositePhase - this.routeSpeed * centerTravel / this.nominalSpeed();
-                centralPhase = this.wrap(this.recoveryOrigin + Math.rint((centralPhase - this.recoveryOrigin) / spacing) * spacing);
+                centralPhase = this.wrap(
+                        this.recoveryOrigin + Math.rint((centralPhase - this.recoveryOrigin) / spacing) * spacing
+                );
                 double gapStart = this.recoveryOrder[gapIndex].formationPhase();
                 double centralOffset = this.wrap(centralPhase - gapStart);
                 double candidatePhase = phase;
@@ -508,8 +524,10 @@ public final class PathLoadBalancer {
         Segment segment = this.segmentAt(phase);
         double fraction = 0;
         if (segment.length() > 0) fraction = (phase - segment.phase()) / segment.length();
-        return new Point(segment.start().x() + segment.dx() * fraction, segment.start().y(),
-                segment.start().z() + segment.dz() * fraction);
+        return new Point(
+                segment.start().x() + segment.dx() * fraction, segment.start().y(),
+                segment.start().z() + segment.dz() * fraction
+        );
     }
 
     private double distanceSquared(double phase, double x, double z) {
@@ -562,7 +580,8 @@ public final class PathLoadBalancer {
             double dz,
             double length,
             double lengthSquared
-    ) {}
+    ) {
+    }
 
     private static final class Member {
         private final long id;

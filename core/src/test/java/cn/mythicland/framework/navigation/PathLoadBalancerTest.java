@@ -1,9 +1,11 @@
 package cn.mythicland.framework.navigation;
 
 import cn.mythicland.framework.task.RoundRobinBudget;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,7 +21,9 @@ class PathLoadBalancerTest {
                 crowded.run(warmup);
                 double centerX = route.stream().mapToDouble(PathLoadBalancer.Point::x).average().orElseThrow();
                 double centerZ = route.stream().mapToDouble(PathLoadBalancer.Point::z).average().orElseThrow();
-                double radius = route.stream().mapToDouble(point -> Math.hypot(point.x() - centerX, point.z() - centerZ)).min().orElseThrow();
+                double radius =
+                        route.stream().mapToDouble(point -> Math.hypot(point.x() - centerX, point.z() - centerZ)).min()
+                                .orElseThrow();
                 double centerDistances = 0;
                 int crossings = 0;
                 for (int id = 0; id < population; id++) {
@@ -28,16 +32,21 @@ class PathLoadBalancerTest {
                     PathLoadBalancer.Point start = crowded.point(crowded.phases[id]);
                     PathLoadBalancer.Point destination = goal.orElseThrow();
                     double dx = destination.x() - start.x(), dz = destination.z() - start.z();
-                    double fraction = Math.clamp(((centerX - start.x()) * dx + (centerZ - start.z()) * dz)
-                            / (dx * dx + dz * dz), 0, 1);
-                    double centerDistance = Math.hypot(start.x() + dx * fraction - centerX, start.z() + dz * fraction - centerZ);
+                    double fraction = Math.clamp(
+                            ((centerX - start.x()) * dx + (centerZ - start.z()) * dz)
+                                    / (dx * dx + dz * dz), 0, 1
+                    );
+                    double centerDistance =
+                            Math.hypot(start.x() + dx * fraction - centerX, start.z() + dz * fraction - centerZ);
                     centerDistances += centerDistance;
                     crossings++;
                 }
                 assertTrue(crossings > 0);
-                assertTrue(centerDistances / crossings < radius / 3,
+                assertTrue(
+                        centerDistances / crossings < radius / 3,
                         "Predicted crossing lines should pass near the path center instead of cutting along its edge; distance="
-                                + centerDistances / crossings + ", warmup=" + warmup + ", route=" + route);
+                                + centerDistances / crossings + ", warmup=" + warmup + ", route=" + route
+                );
             }
         }
     }
@@ -64,7 +73,8 @@ class PathLoadBalancerTest {
             for (int step = 1; step <= 12; step++) {
                 crowded.balancing.begin(40 + step);
                 for (int id = 0; id < crowded.phases.length; id++) {
-                    PathLoadBalancer.Point point = crowded.point(crowded.perimeter * id / crowded.phases.length + step * .16);
+                    PathLoadBalancer.Point point =
+                            crowded.point(crowded.perimeter * id / crowded.phases.length + step * .16);
                     if (id == selected) {
                         double fraction = .2 + step * .025;
                         point = new PathLoadBalancer.Point(
@@ -77,16 +87,28 @@ class PathLoadBalancerTest {
                 double minimumSpeed = .9;
                 if (step > 6) minimumSpeed = .95;
                 crowded.balancing.end(.16, 1, minimumSpeed);
-                assertTrue(crowded.balancing.isCrossing(selected), "Rebalanced peers must not cancel a crossing halfway through");
-                assertEquals(destination, crowded.balancing.recoveryGoal(selected).orElseThrow(),
-                        "An admitted shortcut must keep its destination instead of turning back toward its original edge");
+                assertTrue(
+                        crowded.balancing.isCrossing(selected),
+                        "Rebalanced peers must not cancel a crossing halfway through"
+                );
+                assertEquals(
+                        destination,
+                        crowded.balancing.recoveryGoal(selected).orElseThrow(),
+                        "An admitted shortcut must keep its destination instead of turning back toward its original edge"
+                );
                 double speed = crowded.balancing.speedMultiplier(selected);
-                assertTrue(speed >= minimumSpeed && speed <= 1, "Crossing timing must respect the configured speed limits");
+                assertTrue(
+                        speed >= minimumSpeed && speed <= 1,
+                        "Crossing timing must respect the configured speed limits"
+                );
                 assertTrue(speed >= previousSpeed - .040001, "Crossing speed corrections should remain gradual");
                 if (speed < .99) slowed = true;
                 previousSpeed = speed;
             }
-            assertTrue(slowed, "A crossing arriving ahead of its moving gap should slow down without changing its destination");
+            assertTrue(
+                    slowed,
+                    "A crossing arriving ahead of its moving gap should slow down without changing its destination"
+            );
             crowded.balancing.begin(53);
             for (int id = 0; id < crowded.phases.length; id++) {
                 PathLoadBalancer.Point point = crowded.point(crowded.perimeter * id / crowded.phases.length);
@@ -94,7 +116,10 @@ class PathLoadBalancerTest {
                 crowded.balancing.observe(id, point.x(), point.y(), point.z());
             }
             crowded.balancing.end(.16);
-            assertFalse(crowded.balancing.isCrossing(selected), "The shortcut should finish after reaching its committed destination");
+            assertFalse(
+                    crowded.balancing.isCrossing(selected),
+                    "The shortcut should finish after reaching its committed destination"
+            );
         }
     }
 
@@ -108,12 +133,18 @@ class PathLoadBalancerTest {
                 for (int id = 0; id < population; id++) crowded.balancing.recoveryGoal(id);
                 int crossing = 0;
                 for (int id = 0; id < population; id++) if (crowded.balancing.isCrossing(id)) crossing++;
-                assertTrue(crossing > 0 && crossing <= 4, "Major vacancies should receive a bounded batch of shortcuts");
+                assertTrue(
+                        crossing > 0 && crossing <= 4,
+                        "Major vacancies should receive a bounded batch of shortcuts"
+                );
                 for (int id = 0; id < population; id++) {
                     if (!crowded.balancing.isCrossing(id)) continue;
                     crowded.balancing.cancelCrossing(id);
                     assertFalse(crowded.balancing.isCrossing(id));
-                    assertTrue(crowded.balancing.recoveryGoal(id).isEmpty(), "Rejected shortcuts must not be immediately reassigned");
+                    assertTrue(
+                            crowded.balancing.recoveryGoal(id).isEmpty(),
+                            "Rejected shortcuts must not be immediately reassigned"
+                    );
                     break;
                 }
 
@@ -122,13 +153,19 @@ class PathLoadBalancerTest {
                 almost.run(1);
                 crowded.balancing.begin(2);
                 for (int id = 0; id < population; id++) {
-                    assertTrue(almost.balancing.recoveryGoal(id).isEmpty(), "Small spacing errors must stay on the route");
+                    assertTrue(
+                            almost.balancing.recoveryGoal(id).isEmpty(),
+                            "Small spacing errors must stay on the route"
+                    );
                     PathLoadBalancer.Point point = crowded.point(crowded.phases[id]);
                     crowded.balancing.observe(id, point.x(), point.y(), point.z(), false);
                 }
                 crowded.balancing.end(.16);
                 for (int id = 0; id < population; id++) {
-                    assertTrue(crowded.balancing.recoveryGoal(id).isEmpty(), "Airborne bots must land naturally before rejoining");
+                    assertTrue(
+                            crowded.balancing.recoveryGoal(id).isEmpty(),
+                            "Airborne bots must land naturally before rejoining"
+                    );
                     assertFalse(crowded.balancing.isCrossing(id));
                 }
             }
@@ -142,24 +179,37 @@ class PathLoadBalancerTest {
                 RecoverySimulation recovery = new RecoverySimulation(route, population, true);
                 RecoverySimulation alongRoute = new RecoverySimulation(route, population, false);
                 recovery.run(200);
-                assertTrue(recovery.relocated >= population * .6,
-                        "Severe scattering should primarily recover through interior redistribution");
-                assertTrue(recovery.peakCrossings > population * .2,
-                        "Recovery should not wait for a small crossing minority to finish before sending others");
+                assertTrue(
+                        recovery.relocated >= population * .6,
+                        "Severe scattering should primarily recover through interior redistribution"
+                );
+                assertTrue(
+                        recovery.peakCrossings > population * .2,
+                        "Recovery should not wait for a small crossing minority to finish before sending others"
+                );
                 recovery.run(600);
                 alongRoute.run(800);
-                assertTrue(recovery.crossings > 0, "Severely scattered patrols should use the interior to fill vacancies");
-                assertTrue(recovery.maximumGapError() + 1 < Math.max(3, population * .1),
-                        "Shortcuts should fill major empty arcs: " + recovery.maximumGapError());
-                assertTrue(recovery.maximumGapError() < alongRoute.maximumGapError(),
-                        "Interior recovery should outperform only slowing down along the perimeter");
+                assertTrue(
+                        recovery.crossings > 0,
+                        "Severely scattered patrols should use the interior to fill vacancies"
+                );
+                assertTrue(
+                        recovery.maximumGapError() + 1 < Math.max(3, population * .1),
+                        "Shortcuts should fill major empty arcs: " + recovery.maximumGapError()
+                );
+                assertTrue(
+                        recovery.maximumGapError() < alongRoute.maximumGapError(),
+                        "Interior recovery should outperform only slowing down along the perimeter"
+                );
                 recovery.run(4000);
                 assertTrue(recovery.maximumGapError() < .4, "Along-route adjustments should finish the spacing");
                 assertTrue(recovery.maximumDistance < .4, "Recovered patrols should return to the perimeter");
                 int completedCrossings = recovery.crossings;
                 recovery.run(400);
-                assertEquals(completedCrossings, recovery.crossings,
-                        "Roughly uniform patrols must finish with along-route corrections, without new shortcuts");
+                assertEquals(
+                        completedCrossings, recovery.crossings,
+                        "Roughly uniform patrols must finish with along-route corrections, without new shortcuts"
+                );
                 for (int id = 0; id < population; id++) assertFalse(recovery.balancing.isCrossing(id));
             }
         }
@@ -171,10 +221,12 @@ class PathLoadBalancerTest {
             for (int population : new int[]{1, 2, 3, 7}) {
                 RecoverySimulation recovery = new RecoverySimulation(route, population, true);
                 recovery.run(4800);
-                assertTrue(recovery.maximumGapError() < .4,
+                assertTrue(
+                        recovery.maximumGapError() < .4,
                         "Small patrols should also reach uniform headways; population=" + population
                                 + ", corners=" + route.size() + ", error=" + recovery.maximumGapError()
-                                + ", crossings=" + recovery.crossings);
+                                + ", crossings=" + recovery.crossings
+                );
                 int crossings = recovery.crossings;
                 recovery.run(400);
                 assertEquals(crossings, recovery.crossings, "Settled patrols should remain on their route");
@@ -198,8 +250,10 @@ class PathLoadBalancerTest {
         balancing.observe(0, .17, 64, 0);
         balancing.observe(1, 1.17, 64, 0);
         balancing.end(.16, .1, .95);
-        assertEquals(.95, balancing.speedMultiplier(0), .001,
-                "Raising the configured minimum must take effect before the next spacing update");
+        assertEquals(
+                .95, balancing.speedMultiplier(0), .001,
+                "Raising the configured minimum must take effect before the next spacing update"
+        );
         balancing.end(.16, .1, 1);
         assertEquals(1, balancing.speedMultiplier(0), .001);
         for (double invalid : new double[]{-.1, 1.1, Double.NaN, Double.POSITIVE_INFINITY}) {
@@ -240,8 +294,10 @@ class PathLoadBalancerTest {
             }
             simulation.run(1);
             for (int id = 0; id < simulation.phases.length; id++) {
-                assertEquals(1, simulation.balancing.speedMultiplier(id), .001,
-                        "Visually uniform patrols should stay at normal speed instead of chasing exact slots");
+                assertEquals(
+                        1, simulation.balancing.speedMultiplier(id), .001,
+                        "Visually uniform patrols should stay at normal speed instead of chasing exact slots"
+                );
             }
         }
     }
@@ -256,8 +312,10 @@ class PathLoadBalancerTest {
             balancing.observe(1, 10 + tick * .1, 64, 0);
             balancing.end(.16);
             double speed = balancing.speedMultiplier(0);
-            assertTrue(speed <= previous && speed >= previous - .05 && speed >= .9,
-                    "Slowdown should be gradual and retain at least ninety percent of normal speed");
+            assertTrue(
+                    speed <= previous && speed >= previous - .05 && speed >= .9,
+                    "Slowdown should be gradual and retain at least ninety percent of normal speed"
+            );
             previous = speed;
         }
         for (int tick = 11; tick <= 40; tick++) {
@@ -267,8 +325,10 @@ class PathLoadBalancerTest {
             balancing.observe(1, 14 - phase, 64, 14);
             balancing.end(.16);
             double speed = balancing.speedMultiplier(0);
-            assertTrue(speed + 1e-9 >= previous && speed <= Math.min(1, previous + .05),
-                    "Recovery should be gradual and capped at normal speed");
+            assertTrue(
+                    speed + 1e-9 >= previous && speed <= Math.min(1, previous + .05),
+                    "Recovery should be gradual and capped at normal speed"
+            );
             previous = speed;
         }
         assertEquals(1, balancing.speedMultiplier(0), .001);
@@ -343,8 +403,10 @@ class PathLoadBalancerTest {
                 double normalTravel = 400 * Simulation.SPEED;
                 for (int id = 0; id < simulation.phases.length; id++) {
                     if (id == 10) continue;
-                    assertTrue(simulation.travelled[id] > normalTravel * .89,
-                            "One stationary patrol must not hold up member " + id + ": " + simulation.travelled[id]);
+                    assertTrue(
+                            simulation.travelled[id] > normalTravel * .89,
+                            "One stationary patrol must not hold up member " + id + ": " + simulation.travelled[id]
+                    );
                 }
                 simulation.frozen[10] = false;
                 simulation.settle();
@@ -364,8 +426,10 @@ class PathLoadBalancerTest {
             balancing.observe(1, 14, 64, 6 + tick * .1);
             balancing.end(.16);
         }
-        assertEquals(1, balancing.speedMultiplier(0), .001,
-                "The stationary bot should be released from headway control so the others can pass");
+        assertEquals(
+                1, balancing.speedMultiplier(0), .001,
+                "The stationary bot should be released from headway control so the others can pass"
+        );
     }
 
     @Test
@@ -395,8 +459,10 @@ class PathLoadBalancerTest {
     }
 
     private static List<PathLoadBalancer.Point> square() {
-        return List.of(new PathLoadBalancer.Point(0, 64, 0), new PathLoadBalancer.Point(14, 64, 0),
-                new PathLoadBalancer.Point(14, 64, 14), new PathLoadBalancer.Point(0, 64, 14));
+        return List.of(
+                new PathLoadBalancer.Point(0, 64, 0), new PathLoadBalancer.Point(14, 64, 0),
+                new PathLoadBalancer.Point(14, 64, 14), new PathLoadBalancer.Point(0, 64, 14)
+        );
     }
 
     private static List<PathLoadBalancer.Point> middlePath() {
@@ -448,8 +514,10 @@ class PathLoadBalancerTest {
             while (index + 1 < this.route.size() && this.starts[index + 1] <= phase) index++;
             double fraction = (phase - this.starts[index]) / this.lengths[index];
             PathLoadBalancer.Point a = this.route.get(index), b = this.route.get((index + 1) % this.route.size());
-            return new PathLoadBalancer.Point(a.x() + (b.x() - a.x()) * fraction, a.y(),
-                    a.z() + (b.z() - a.z()) * fraction);
+            return new PathLoadBalancer.Point(
+                    a.x() + (b.x() - a.x()) * fraction, a.y(),
+                    a.z() + (b.z() - a.z()) * fraction
+            );
         }
 
         private void settle() {
@@ -470,8 +538,10 @@ class PathLoadBalancerTest {
                 for (int id = 0; id < this.phases.length; id++) {
                     if (!this.active[id]) continue;
                     double multiplier = this.balancing.speedMultiplier(id);
-                    assertTrue(multiplier >= .9 && multiplier <= 1,
-                            "Spacing adjustments must retain ninety percent of normal speed without speeding up");
+                    assertTrue(
+                            multiplier >= .9 && multiplier <= 1,
+                            "Spacing adjustments must retain ninety percent of normal speed without speeding up"
+                    );
                     if ((this.tick + id) % this.updateInterval != 0) continue;
                     if (this.frozen[id]) continue;
                     // Normal ground retains motion between steps instead of moving at the commanded speed instantly.
@@ -493,8 +563,10 @@ class PathLoadBalancerTest {
             for (int index = 0; index < count; index++) {
                 double next = sorted[(index + 1) % count];
                 if (index == count - 1) next += this.perimeter;
-                assertEquals(spacing, next - sorted[index], spacing * tolerance,
-                        "Headways should converge for " + count + " patrols");
+                assertEquals(
+                        spacing, next - sorted[index], spacing * tolerance,
+                        "Headways should converge for " + count + " patrols"
+                );
             }
         }
     }
@@ -551,7 +623,10 @@ class PathLoadBalancerTest {
                     double dx = goal.x() - this.x[id], dz = goal.z() - this.z[id];
                     double distance = Math.hypot(dx, dz);
                     double multiplier = this.balancing.speedMultiplier(id);
-                    assertTrue(multiplier >= .9 && multiplier <= 1, "Recovery must preserve the configured speed range");
+                    assertTrue(
+                            multiplier >= .9 && multiplier <= 1,
+                            "Recovery must preserve the configured speed range"
+                    );
                     double acceleration = Simulation.SPEED * multiplier * .454;
                     if (distance > 1e-6) {
                         this.vx[id] += dx / distance * acceleration;
@@ -586,8 +661,10 @@ class PathLoadBalancerTest {
                     PathLoadBalancer.Point a = this.geometry.route.get(index);
                     PathLoadBalancer.Point b = this.geometry.route.get((index + 1) % this.geometry.route.size());
                     double dx = b.x() - a.x(), dz = b.z() - a.z();
-                    double fraction = Math.clamp(((this.x[id] - a.x()) * dx + (this.z[id] - a.z()) * dz)
-                            / (this.geometry.lengths[index] * this.geometry.lengths[index]), 0, 1);
+                    double fraction = Math.clamp(
+                            ((this.x[id] - a.x()) * dx + (this.z[id] - a.z()) * dz)
+                                    / (this.geometry.lengths[index] * this.geometry.lengths[index]), 0, 1
+                    );
                     double distance = Math.pow(this.x[id] - a.x() - dx * fraction, 2)
                             + Math.pow(this.z[id] - a.z() - dz * fraction, 2);
                     if (distance >= nearest) continue;

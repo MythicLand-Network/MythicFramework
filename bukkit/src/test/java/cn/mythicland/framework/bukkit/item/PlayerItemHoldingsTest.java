@@ -71,9 +71,12 @@ class PlayerItemHoldingsTest {
         ItemStack pickaxe = new ItemStack(Material.IRON_PICKAXE);
         when(this.player.getItemOnCursor()).thenReturn(pickaxe);
 
-        assertTrue(this.holdings.updateFirst(
-                this.player, item -> item.getType() == Material.IRON_PICKAXE,
-                item -> item.setDurability((short) 1)));
+        assertTrue(
+                this.holdings.updateFirst(
+                        this.player, item -> item.getType() == Material.IRON_PICKAXE,
+                        item -> item.setDurability((short) 1)
+                )
+        );
 
         ArgumentCaptor<ItemStack> updated = ArgumentCaptor.forClass(ItemStack.class);
         verify(this.player).setItemOnCursor(updated.capture());
@@ -82,15 +85,21 @@ class PlayerItemHoldingsTest {
         when(this.player.getItemOnCursor()).thenReturn(null);
         when(this.top.getItem(0)).thenReturn(pickaxe);
 
-        assertTrue(this.holdings.updateFirst(
-                this.player, item -> item.getType() == Material.IRON_PICKAXE,
-                item -> item.setDurability((short) 2)));
+        assertTrue(
+                this.holdings.updateFirst(
+                        this.player, item -> item.getType() == Material.IRON_PICKAXE,
+                        item -> item.setDurability((short) 2)
+                )
+        );
 
         verify(this.top).setItem(eq(0), updated.capture());
         assertEquals(2, updated.getValue().getDurability());
         when(this.menus.isManagedInventory(this.top)).thenReturn(true);
-        assertFalse(this.holdings.updateFirst(
-                this.player, item -> item.getType() == Material.IRON_PICKAXE,
-                item -> fail("Menu icon must not be updated")));
+        assertFalse(
+                this.holdings.updateFirst(
+                        this.player, item -> item.getType() == Material.IRON_PICKAXE,
+                        item -> fail("Menu icon must not be updated")
+                )
+        );
     }
 }

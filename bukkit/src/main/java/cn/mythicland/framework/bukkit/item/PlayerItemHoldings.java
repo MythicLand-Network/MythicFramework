@@ -22,7 +22,9 @@ public final class PlayerItemHoldings {
         return this.count(player, matches, inventory -> this.count(inventory, matches));
     }
 
-    /** The inventory counter counts matching items; the predicate also applies to the cursor. */
+    /**
+     * The inventory counter counts matching items; the predicate also applies to the cursor.
+     */
     public int count(
             Player player,
             Predicate<ItemStack> matches,
