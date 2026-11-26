@@ -59,6 +59,65 @@ public final class GridPathfinder {
         );
     }
 
+    public int directSegments(Location start, Location goal) {
+        return Math.max(1, (int) Math.ceil(Math.hypot(goal.getX() - start.getX(), goal.getZ() - start.getZ()) / 3.5));
+    }
+
+    public boolean canWalkDirectly(Location start, Location goal, int maxSegments) {
+        if (maxSegments <= 0) throw new IllegalArgumentException("maximum direct segments must be positive");
+        int segments = this.directSegments(start, goal);
+        if (segments > maxSegments) return false;
+        if (!start.getWorld().equals(goal.getWorld()) || start.getBlockY() != goal.getBlockY()) return false;
+        return this.directLine(start, goal, segments, false);
+    }
+
+    /**
+     * Checks forward nodes on the current level, sharing terrain reads only within this call.
+     */
+    public int furthestDirectPoint(
+            Location start,
+            List<Location> path,
+            int first,
+            double rangeSquared
+    ) {
+        if (first < 0 || first > path.size()) throw new IndexOutOfBoundsException("invalid first path index: " + first);
+        if (!Double.isFinite(rangeSquared) || rangeSquared < 0) {
+            throw new IllegalArgumentException("squared direct range must be finite and nonnegative");
+        }
+        int end = first;
+        while (end < path.size() && path.get(end).getBlockY() == start.getBlockY()) end++;
+        this.walkability.clear();
+        for (int index = end - 1; index >= first; index--) {
+            Location point = path.get(index);
+            if (start.distanceSquared(point) > rangeSquared) continue;
+            if (this.directLine(start, point, this.directSegments(start, point), true)) return index;
+        }
+        return -1;
+    }
+
+    private boolean directLine(
+            Location start,
+            Location goal,
+            int segments,
+            boolean cached
+    ) {
+        World world = start.getWorld();
+        double sx = start.getX(), sy = start.getY(), sz = start.getZ();
+        double dx = goal.getX() - sx, dy = goal.getY() - sy, dz = goal.getZ() - sz;
+        double fromX = sx, fromY = sy, fromZ = sz;
+        for (int index = 1; index <= segments; index++) {
+            double fraction = (double) index / segments;
+            double toX = sx + dx * fraction, toY = sy + dy * fraction, toZ = sz + dz * fraction;
+            int blockY = Location.locToBlock(fromY);
+            if (blockY != Location.locToBlock(toY)) return false;
+            if (!this.direct(world, fromX, blockY, fromZ, toX, toZ, cached)) return false;
+            fromX = toX;
+            fromY = toY;
+            fromZ = toZ;
+        }
+        return true;
+    }
+
     public boolean isWalkable(Location location) {
         World world = location.getWorld();
         if (!world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) return false;
