@@ -27,14 +27,16 @@ class DiagnosticFramesTest {
         DiagnosticRecorder recorder = this.recorder();
         ThreadLocal<Long> frame = ThreadLocal.withInitial(() -> 0L);
         AtomicLong observed = new AtomicLong();
-        EmbeddedChannel channel = new EmbeddedChannel(new DiagnosticFrames(recorder, UUID.randomUUID(), frame, DiagnosticOptions.defaults(1800)),
+        EmbeddedChannel channel = new EmbeddedChannel(
+                new DiagnosticFrames(recorder, UUID.randomUUID(), frame, DiagnosticOptions.defaults(1800)),
                 new ChannelInboundHandlerAdapter() {
                     @Override
                     public void channelRead(ChannelHandlerContext context, Object message) {
                         observed.set(frame.get());
                         context.fireChannelRead(message);
                     }
-                });
+                }
+        );
         ByteBuf buffer = Unpooled.wrappedBuffer(new byte[]{2, (byte) 172, 2, 1});
         assertTrue(channel.writeInbound(buffer));
         assertSame(buffer, channel.readInbound());
@@ -52,7 +54,9 @@ class DiagnosticFramesTest {
     void malformedFrame_shouldStopCaptureButStillForwardOriginalMessageOnce() throws Exception {
         DiagnosticRecorder recorder = this.recorder();
         EmbeddedChannel channel = new EmbeddedChannel(new DiagnosticFrames(recorder, UUID.randomUUID(),
-                ThreadLocal.withInitial(() -> 0L), DiagnosticOptions.defaults(1800)));
+                ThreadLocal.withInitial(() -> 0L), DiagnosticOptions.defaults(1800)
+        )
+        );
         ByteBuf buffer = Unpooled.wrappedBuffer(new byte[]{2, (byte) 128});
         assertTrue(channel.writeInbound(buffer));
         assertSame(buffer, channel.readInbound());
@@ -67,13 +71,17 @@ class DiagnosticFramesTest {
     }
 
     private DiagnosticRecorder recorder() throws Exception {
-        return new DiagnosticRecorder(this.directory, new DiagnosticRecorder.Limits(
-                Duration.ofMinutes(30),
-                8192,
-                1024 * 1024,
-                4 * 1024 * 1024,
-                0,
-                128
-        ), Map.of());
+        return new DiagnosticRecorder(
+                this.directory,
+                new DiagnosticRecorder.Limits(
+                        Duration.ofMinutes(30),
+                        8192,
+                        1024 * 1024,
+                        4 * 1024 * 1024,
+                        0,
+                        128
+                ),
+                Map.of()
+        );
     }
 }

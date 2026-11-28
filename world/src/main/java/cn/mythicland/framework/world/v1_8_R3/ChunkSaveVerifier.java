@@ -84,14 +84,18 @@ final class ChunkSaveVerifier {
             failure = exception;
         }
         if (System.nanoTime() >= deadline) {
-            result.completeExceptionally(new IOException("Chunk save was not acknowledged: " + file + " [" + x + ", " + z + "]", failure));
+            result.completeExceptionally(
+                    new IOException("Chunk save was not acknowledged: " + file + " [" + x + ", " + z + "]", failure)
+            );
             return;
         }
         CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS, executor).execute(
-                () -> poll(file, x, z, snapshot, positions, executor, deadline, result));
+                () -> poll(file, x, z, snapshot, positions, executor, deadline, result)
+        );
     }
 
-    record Snapshot(Map<Integer, char[]> sections, Map<BlockPosition, NBTTagCompound> tiles) {}
+    record Snapshot(Map<Integer, char[]> sections, Map<BlockPosition, NBTTagCompound> tiles) {
+    }
 
     private static boolean matches(
             Path file,
@@ -114,7 +118,8 @@ final class ChunkSaveVerifier {
                 byte[] blocks = section == null ? new byte[4096] : section.getByteArray("Blocks");
                 byte[] data = section == null ? new byte[2048] : section.getByteArray("Data");
                 byte[] high = section == null ? new byte[0] : section.getByteArray("Add");
-                if (blocks.length != 4096 || data.length != 2048 || (high.length != 0 && high.length != 2048)) return false;
+                if (blocks.length != 4096 || data.length != 2048 || (high.length != 0 && high.length != 2048))
+                    return false;
                 for (int i = 0; i < 4096; i++) {
                     if (!positions.get((entry.getKey() << 12) + i)) continue;
                     int shift = (i & 1) * 4;
@@ -128,7 +133,8 @@ final class ChunkSaveVerifier {
             for (int i = 0; i < tileList.size(); i++) {
                 NBTTagCompound tile = tileList.get(i);
                 BlockPosition position = new BlockPosition(tile.getInt("x"), tile.getInt("y"), tile.getInt("z"));
-                if (positions.get((position.getY() << 8) | ((position.getZ() & 15) << 4) | (position.getX() & 15))) tiles.put(position, tile);
+                if (positions.get((position.getY() << 8) | ((position.getZ() & 15) << 4) | (position.getX() & 15)))
+                    tiles.put(position, tile);
             }
             return tiles.equals(expectedTiles);
         } finally {

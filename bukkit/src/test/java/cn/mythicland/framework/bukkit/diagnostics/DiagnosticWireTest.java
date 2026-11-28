@@ -63,7 +63,8 @@ class DiagnosticWireTest {
         assertEquals(1, equipment.refCnt());
         equipment.release();
         for (Packet packet : List.of(new PacketPlayOutEntityEquipment(923, 4, null),
-                new PacketPlayOutScoreboardScore("Target"), new PacketPlayOutScoreboardScore("Other"))) {
+                new PacketPlayOutScoreboardScore("Target"), new PacketPlayOutScoreboardScore("Other")
+        )) {
             channel.writeOutbound(this.encode(packet));
             ((ByteBuf) channel.readOutbound()).release();
         }
@@ -75,10 +76,14 @@ class DiagnosticWireTest {
         var records = this.records(recorder);
         assertEquals(2, records.size());
         var fields = records.getFirst().getAsJsonObject("fields");
-        assertEquals("IRON_HELMET", fields.getAsJsonObject("payload").getAsJsonObject("item").get("type").getAsString());
+        assertEquals("IRON_HELMET",
+                fields.getAsJsonObject("payload").getAsJsonObject("item").get("type").getAsString()
+        );
         assertEquals("test-connection", fields.get("connection").getAsString());
         assertEquals(64, fields.get("sha256").getAsString().length());
-        assertEquals("Target", records.getLast().getAsJsonObject("fields").getAsJsonObject("payload").get("entry").getAsString());
+        assertEquals("Target",
+                records.getLast().getAsJsonObject("fields").getAsJsonObject("payload").get("entry").getAsString()
+        );
     }
 
     @Test
@@ -88,18 +93,24 @@ class DiagnosticWireTest {
         EmbeddedChannel channel = new EmbeddedChannel(new ChannelOutboundHandlerAdapter());
         channel.pipeline().addLast("prepender", new ChannelOutboundHandlerAdapter());
         channel.pipeline().addLast("compress", new PacketCompressor(0));
-        channel.pipeline().addLast("encoder", new ChannelOutboundHandlerAdapter() {
-            @Override
-            public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) throws Exception {
-                ByteBuf bytes = (ByteBuf) message;
-                bytes.setShort(5, 310);
-                context.write(message, promise);
-            }
-        });
+        channel.pipeline().addLast(
+                "encoder",
+                new ChannelOutboundHandlerAdapter() {
+                    @Override
+                    public void write(ChannelHandlerContext context, Object message, ChannelPromise promise)
+                            throws Exception {
+                        ByteBuf bytes = (ByteBuf) message;
+                        bytes.setShort(5, 310);
+                        context.write(message, promise);
+                    }
+                }
+        );
         var wire = this.wire(recorder);
         for (int attempt = 0; attempt < 2; attempt++) {
             wire.position(channel.pipeline(), "wire");
-            channel.writeOutbound(this.encode(new PacketPlayOutEntityEquipment(887, 4, new ItemStack(Items.IRON_HELMET))));
+            channel.writeOutbound(
+                    this.encode(new PacketPlayOutEntityEquipment(887, 4, new ItemStack(Items.IRON_HELMET)))
+            );
             EmbeddedChannel decoder = new EmbeddedChannel(new PacketDecompressor(0));
             decoder.writeInbound(channel.readOutbound());
             ByteBuf decoded = (ByteBuf) decoder.readInbound();
@@ -113,8 +124,11 @@ class DiagnosticWireTest {
         var records = this.records(recorder);
         assertEquals(2, records.size());
         for (var record : records)
-            assertEquals("DIAMOND_HELMET", record.getAsJsonObject("fields").getAsJsonObject("payload")
-                    .getAsJsonObject("item").get("type").getAsString());
+            assertEquals(
+                    "DIAMOND_HELMET",
+                    record.getAsJsonObject("fields").getAsJsonObject("payload")
+                            .getAsJsonObject("item").get("type").getAsString()
+            );
     }
 
     @Test
@@ -138,9 +152,17 @@ class DiagnosticWireTest {
         when(target.getUniqueId()).thenReturn(UUID.randomUUID());
         when(target.getName()).thenReturn("Target");
         when(target.getEntityId()).thenReturn(887);
-        var options = new DiagnosticOptions(Set.of(DiagnosticOptions.PacketGroup.EQUIPMENT,
-                DiagnosticOptions.PacketGroup.HEALTH), Set.of(), 60, 20);
-        return new DiagnosticWire(recorder, UUID.randomUUID(), "test-connection", new DiagnosticPacketSelection(options, List.of(target)), options);
+        var options = new DiagnosticOptions(
+                Set.of(DiagnosticOptions.PacketGroup.EQUIPMENT,
+                        DiagnosticOptions.PacketGroup.HEALTH
+                ),
+                Set.of(),
+                60,
+                20
+        );
+        return new DiagnosticWire(recorder, UUID.randomUUID(), "test-connection",
+                new DiagnosticPacketSelection(options, List.of(target)), options
+        );
     }
 
     private ByteBuf encode(Packet packet) throws Exception {
@@ -151,8 +173,13 @@ class DiagnosticWireTest {
     }
 
     private DiagnosticRecorder recorder() throws Exception {
-        return new DiagnosticRecorder(this.directory, new DiagnosticRecorder.Limits(
-                Duration.ofMinutes(30), 8192, 1024 * 1024, 4 * 1024 * 1024, 0, 128), Map.of());
+        return new DiagnosticRecorder(
+                this.directory,
+                new DiagnosticRecorder.Limits(
+                        Duration.ofMinutes(30), 8192, 1024 * 1024, 4 * 1024 * 1024, 0, 128
+                ),
+                Map.of()
+        );
     }
 
     private List<JsonObject> records(DiagnosticRecorder recorder) throws Exception {
@@ -163,9 +190,14 @@ class DiagnosticWireTest {
         List<JsonObject> records = new ArrayList<>();
         try (var paths = Files.list(recorder.directory())) {
             for (Path path : paths.filter(file -> file.toString().endsWith(".jsonl.gz")).sorted().toList()) {
-                try (var reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(Files.newInputStream(path)), StandardCharsets.UTF_8))) {
+                try (var reader = new BufferedReader(
+                        new InputStreamReader(new GZIPInputStream(Files.newInputStream(path)),
+                                StandardCharsets.UTF_8
+                        )
+                )) {
                     reader.lines().map(line -> new JsonParser().parse(line).getAsJsonObject())
-                            .filter(record -> record.get("stage").getAsString().equals("outbound.encoded")).forEach(records::add);
+                            .filter(record -> record.get("stage").getAsString().equals("outbound.encoded"))
+                            .forEach(records::add);
                 }
             }
         }

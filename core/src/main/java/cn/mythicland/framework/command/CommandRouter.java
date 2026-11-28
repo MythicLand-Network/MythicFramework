@@ -10,7 +10,12 @@ import java.util.function.Predicate;
 public final class CommandRouter<S> {
     private final Map<String, Route<S>> routes = new LinkedHashMap<>();
 
-    public CommandRouter<S> route(String name, int arguments, Predicate<S> allowed, BiConsumer<S, String[]> handler) {
+    public CommandRouter<S> route(
+            String name,
+            int arguments,
+            Predicate<S> allowed,
+            BiConsumer<S, String[]> handler
+    ) {
         String key = name.toLowerCase(Locale.ROOT);
         if (this.routes.putIfAbsent(key, new Route<>(arguments, allowed, handler)) != null) {
             throw new IllegalArgumentException("Duplicate command route: " + name);
@@ -34,5 +39,10 @@ public final class CommandRouter<S> {
                 .toList();
     }
 
-    private record Route<S>(int arguments, Predicate<S> allowed, BiConsumer<S, String[]> handler) {}
+    private record Route<S>(
+            int arguments,
+            Predicate<S> allowed,
+            BiConsumer<S, String[]> handler
+    ) {
+    }
 }

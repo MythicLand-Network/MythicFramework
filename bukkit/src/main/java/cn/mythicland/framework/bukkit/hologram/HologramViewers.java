@@ -52,7 +52,11 @@ public final class HologramViewers<D extends HologramDisplay> implements AutoClo
      * Reconciles visibility and returns false when creation must continue on the next tick.
      * Hidden personalized displays are retained until forget/close and do not consume creation budget.
      */
-    public boolean refresh(Collection<? extends Player> players, Predicate<Player> visible, int maxCreations) {
+    public boolean refresh(
+            Collection<? extends Player> players,
+            Predicate<Player> visible,
+            int maxCreations
+    ) {
         this.requireOpen();
         if (maxCreations <= 0) throw new IllegalArgumentException("maxCreations must be positive");
         int creations = 0;

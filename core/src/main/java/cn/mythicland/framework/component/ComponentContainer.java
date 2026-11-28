@@ -98,7 +98,9 @@ public final class ComponentContainer implements ComponentResolver {
         this.discover(packageName, typeFilter, false);
     }
 
-    /** Discovers externally annotated singleton components without starting their lifecycle. */
+    /**
+     * Discovers externally annotated singleton components without starting their lifecycle.
+     */
     public void discover(
             ClassLoader classLoader,
             String packageName,
@@ -117,7 +119,8 @@ public final class ComponentContainer implements ComponentResolver {
             this.scannedClasses = ComponentScanner.scan(classLoader, packageName);
             this.managedTypes = new LinkedHashSet<>(this.scannedClasses.stream().filter(component).toList());
             this.orderedManagedTypes = ordered(this.managedTypes);
-            if (this.managedTypes.isEmpty()) throw new IllegalStateException("No components found below package: " + packageName);
+            if (this.managedTypes.isEmpty())
+                throw new IllegalStateException("No components found below package: " + packageName);
         } catch (RuntimeException | Error exception) {
             this.clearState();
             throw exception;
@@ -446,7 +449,8 @@ public final class ComponentContainer implements ComponentResolver {
                 .filter(lifecycle -> this.phase(lifecycle) < beforePhase)
                 .sorted(Comparator
                         .comparingInt((ManagedLifecycle lifecycle) -> this.phase(lifecycle))
-                        .thenComparing(value -> value.getClass().getName()))
+                        .thenComparing(value -> value.getClass().getName())
+                )
                 .toList();
         try {
             for (ManagedLifecycle lifecycle : lifecycles) {
@@ -553,7 +557,8 @@ public final class ComponentContainer implements ComponentResolver {
                 }
             }
             for (Class<?> type : this.findAnnotatedTypes(InjectComponent.class, typeFilter)) {
-                if (!contract.isAssignableFrom(type) || type.isInterface() || Modifier.isAbstract(type.getModifiers())) continue;
+                if (!contract.isAssignableFrom(type) || type.isInterface() || Modifier.isAbstract(type.getModifiers()))
+                    continue;
                 if (!type.isAnnotationPresent(role)) {
                     throw new IllegalStateException(
                             "Injectable " + contract.getName() + " component requires @"

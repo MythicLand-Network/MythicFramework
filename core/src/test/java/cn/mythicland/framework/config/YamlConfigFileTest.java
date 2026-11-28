@@ -23,7 +23,8 @@ class YamlConfigFileTest {
         Path file = this.directory.resolve("config/config.yml");
         try (URLClassLoader loader = new URLClassLoader(new java.net.URL[]{resources.toUri().toURL()})) {
             assertEquals(List.of("Lobby", "Login"),
-                    YamlConfigFile.load(file, loader, "defaults.yml").stringList("names"));
+                    YamlConfigFile.load(file, loader, "defaults.yml").stringList("names")
+            );
             Files.writeString(file, "names: []\n");
             assertEquals(List.of(), YamlConfigFile.load(file, loader, "defaults.yml").stringList("names"));
         }
@@ -44,7 +45,8 @@ class YamlConfigFileTest {
         Path file = this.directory.resolve("config.yml");
         Files.writeString(file, "names: [Lobby]\nnames: [Login]\n");
         assertThrows(YAMLException.class,
-                () -> YamlConfigFile.load(file, this.getClass().getClassLoader(), "unused.yml"));
+                () -> YamlConfigFile.load(file, this.getClass().getClassLoader(), "unused.yml")
+        );
     }
 
     @Test
@@ -61,7 +63,8 @@ class YamlConfigFileTest {
         assertThrows(IllegalArgumentException.class, () -> config.booleanValue("reconnect.seconds", true));
         assertThrows(IllegalArgumentException.class, () -> config.intValue("reconnect.enabled", 5));
         for (String invalid : List.of("reconnect: []", "reconnect: null", "reconnect: {seconds: null}",
-                "reconnect: {seconds: 1.5}", "reconnect: {seconds: 2147483648}")) {
+                "reconnect: {seconds: 1.5}", "reconnect: {seconds: 2147483648}"
+        )) {
             Files.writeString(file, invalid);
             YamlConfigFile malformed = YamlConfigFile.load(file, this.getClass().getClassLoader(), "unused.yml");
             assertThrows(IllegalArgumentException.class, () -> malformed.intValue("reconnect.seconds", 5));

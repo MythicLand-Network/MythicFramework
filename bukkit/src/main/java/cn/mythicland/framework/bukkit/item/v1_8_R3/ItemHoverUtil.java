@@ -33,9 +33,10 @@ public final class ItemHoverUtil {
     public static TextComponent component(String text, String itemHoverJson) {
         TextComponent component = new TextComponent(TextComponent.fromLegacyText(text));
         component.setHoverEvent(new HoverEvent(
-                HoverEvent.Action.SHOW_ITEM,
-                new BaseComponent[]{new TextComponent(itemHoverJson)}
-        ));
+                        HoverEvent.Action.SHOW_ITEM,
+                        new BaseComponent[]{new TextComponent(itemHoverJson)}
+        )
+        );
         return component;
     }
 

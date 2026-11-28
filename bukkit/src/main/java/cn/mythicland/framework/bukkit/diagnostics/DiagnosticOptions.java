@@ -4,7 +4,12 @@ import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
 
-public record DiagnosticOptions(Set<PacketGroup> packets, Set<Detail> details, int durationSeconds, int sampleTicks) {
+public record DiagnosticOptions(
+        Set<PacketGroup> packets,
+        Set<Detail> details,
+        int durationSeconds,
+        int sampleTicks
+) {
     public enum PacketGroup {
         COMBAT, MOVEMENT, EQUIPMENT, HEALTH, VISIBILITY, LATENCY
     }
@@ -65,7 +70,8 @@ public record DiagnosticOptions(Set<PacketGroup> packets, Set<Detail> details, i
         return switch (type) {
             case "PacketPlayInUseEntity", "PacketPlayInArmAnimation", "PacketPlayInBlockDig",
                  "PacketPlayInBlockPlace" -> this.captures(PacketGroup.COMBAT);
-            case "PacketPlayInHeldItemSlot" -> this.captures(PacketGroup.COMBAT) || this.captures(PacketGroup.EQUIPMENT);
+            case "PacketPlayInHeldItemSlot" ->
+                    this.captures(PacketGroup.COMBAT) || this.captures(PacketGroup.EQUIPMENT);
             case "PacketPlayInFlying", "PacketPlayInPosition", "PacketPlayInPositionLook", "PacketPlayInLook" ->
                     this.captures(PacketGroup.MOVEMENT);
             case "PacketPlayInEntityAction" -> this.captures(PacketGroup.COMBAT) || this.captures(PacketGroup.MOVEMENT);
@@ -110,14 +116,16 @@ public record DiagnosticOptions(Set<PacketGroup> packets, Set<Detail> details, i
     }
 
     boolean event(String name) {
-        if (name.equals("PlayerJoinEvent") || name.equals("PlayerQuitEvent") || name.equals("PlayerRespawnEvent")) return true;
+        if (name.equals("PlayerJoinEvent") || name.equals("PlayerQuitEvent") || name.equals("PlayerRespawnEvent"))
+            return true;
         if (this.captures(PacketGroup.MOVEMENT) && (name.contains("Move") || name.contains("Teleport")
                 || name.contains("Sprint") || name.contains("Sneak") || name.contains("Velocity"))) return true;
         if (this.captures(PacketGroup.EQUIPMENT) && (name.contains("Inventory") || name.contains("Equipment")
                 || name.contains("ItemHeld") || name.contains("ItemBreak"))) return true;
         if (this.captures(PacketGroup.HEALTH) && (name.contains("Damage") || name.contains("Heal")
                 || name.contains("Death") || name.contains("Respawn"))) return true;
-        if (this.captures(PacketGroup.VISIBILITY) && (name.contains("Teleport") || name.contains("ChangedWorld"))) return true;
+        if (this.captures(PacketGroup.VISIBILITY) && (name.contains("Teleport") || name.contains("ChangedWorld")))
+            return true;
         return this.captures(PacketGroup.COMBAT) && (name.contains("Damage") || name.contains("Attack")
                 || name.contains("Combat") || name.contains("Velocity") || name.contains("Projectile")
                 || name.contains("Bow") || name.contains("Death") || name.contains("Resurrect")

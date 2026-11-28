@@ -15,8 +15,12 @@ class MainThreadTest {
             bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
             assertDoesNotThrow(() -> MainThread.require("operation"));
             bukkit.when(Bukkit::isPrimaryThread).thenReturn(false);
-            assertEquals("operation", assertThrows(IllegalStateException.class,
-                    () -> MainThread.require("operation")).getMessage());
+            assertEquals(
+                    "operation",
+                    assertThrows(IllegalStateException.class,
+                            () -> MainThread.require("operation")
+                    ).getMessage()
+            );
         }
     }
 }

@@ -23,7 +23,8 @@ public final class BukkitShutdownNotifier {
             PacketDataSerializer payload =
                     new PacketDataSerializer(Unpooled.wrappedBuffer(ServerShutdownNotice.encode()));
             ((CraftPlayer) player).getHandle().playerConnection.sendPacket(
-                    new PacketPlayOutCustomPayload(ServerShutdownNotice.CHANNEL, payload));
+                    new PacketPlayOutCustomPayload(ServerShutdownNotice.CHANNEL, payload)
+            );
         }
     }
 

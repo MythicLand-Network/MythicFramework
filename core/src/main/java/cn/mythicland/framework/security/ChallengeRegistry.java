@@ -23,8 +23,14 @@ public final class ChallengeRegistry<K, V> {
         return issue(key, UUID.randomUUID(), value, lifetime);
     }
 
-    public UUID issue(K key, UUID nonce, V value, Duration lifetime) {
-        if (lifetime.isNegative() || lifetime.isZero()) throw new IllegalArgumentException("Challenge lifetime must be positive");
+    public UUID issue(
+            K key,
+            UUID nonce,
+            V value,
+            Duration lifetime
+    ) {
+        if (lifetime.isNegative() || lifetime.isZero())
+            throw new IllegalArgumentException("Challenge lifetime must be positive");
         challenges.put(key, new Challenge<>(nonce, value, clock.millis() + lifetime.toMillis()));
         return nonce;
     }

@@ -29,7 +29,8 @@ public class IntervalProgressTest {
         assertThrows(IllegalArgumentException.class, () -> IntervalProgress.completedCount(1.0D, -1.0D));
         assertThrows(IllegalArgumentException.class, () -> IntervalProgress.completedCount(1.0D, Double.NaN));
         assertThrows(IllegalArgumentException.class,
-                () -> IntervalProgress.completedCount(1.0D, Double.POSITIVE_INFINITY));
+                () -> IntervalProgress.completedCount(1.0D, Double.POSITIVE_INFINITY)
+        );
         assertThrows(IllegalArgumentException.class, () -> IntervalProgress.completedCount(Double.NaN, 1.0D));
     }
 }

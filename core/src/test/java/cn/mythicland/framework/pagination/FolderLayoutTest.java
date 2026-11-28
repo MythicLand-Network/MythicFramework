@@ -25,8 +25,13 @@ class FolderLayoutTest {
 
     @Test
     void rejectsMembersAssignedToTwoFolders() {
-        assertThrows(IllegalArgumentException.class, () -> new FolderLayout(List.of(
-                new FolderLayout.Entry("one", 0, true, List.of("shared")),
-                new FolderLayout.Entry("two", 1, true, List.of("shared")))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new FolderLayout(List.of(
+                        new FolderLayout.Entry("one", 0, true, List.of("shared")),
+                        new FolderLayout.Entry("two", 1, true, List.of("shared"))
+                )
+                )
+        );
     }
 }

@@ -29,7 +29,11 @@ public final class YamlMessageBundle {
     private final int fileVersion;
     private final boolean compatible;
 
-    private YamlMessageBundle(YamlConfiguration configuration, int fileVersion, boolean compatible) {
+    private YamlMessageBundle(
+            YamlConfiguration configuration,
+            int fileVersion,
+            boolean compatible
+    ) {
         this.configuration = configuration;
         this.fileVersion = fileVersion;
         this.compatible = compatible;

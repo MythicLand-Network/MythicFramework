@@ -103,37 +103,21 @@ class ConfigViewTest {
     }
 
     private record BoundSettings(
-            @ConfigProperty(
-                    path = "distance",
-                    defaultValue = "2.0",
-                    positive = true
-            ) double distance,
+            @ConfigProperty(path = "distance", defaultValue = "2.0", positive = true) double distance,
             @ConfigProperty(path = "enabled", defaultValue = "false") boolean enabled,
             @ConfigProperty(path = "mode", defaultValue = "SAFE") Mode mode,
-            @ConfigProperty(
-                    path = "label",
-                    defaultValue = "Default",
-                    nonBlank = true
-            ) String label
+            @ConfigProperty(path = "label", defaultValue = "Default", nonBlank = true) String label
     ) {
     }
 
     private record SpacingSettings(
-            @ConfigProperty(
-                    path = "spacings",
-                    defaultValue = "0.0,0.25",
-                    nonNegative = true
-            )
+            @ConfigProperty(path = "spacings", defaultValue = "0.0,0.25", nonNegative = true)
             List<Double> spacings
     ) {
     }
 
     private record UntrimmedSettings(
-            @ConfigProperty(
-                    path = "value",
-                    defaultValue = "  default  ",
-                    trim = false
-            )
+            @ConfigProperty(path = "value", defaultValue = "  default  ", trim = false)
             String value
     ) {
     }

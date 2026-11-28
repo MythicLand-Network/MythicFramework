@@ -3,7 +3,12 @@ package cn.mythicland.framework.bukkit.material;
 /**
  * Immutable localized Bukkit enchantment metadata.
  */
-public record EnchantmentEntry(String key, String displayName, int startLevel, int maxLevel) {
+public record EnchantmentEntry(
+        String key,
+        String displayName,
+        int startLevel,
+        int maxLevel
+) {
     public EnchantmentEntry {
         if (key == null || key.isBlank()) throw new IllegalArgumentException("key is required");
         displayName = displayName == null || displayName.isBlank() ? key : displayName;

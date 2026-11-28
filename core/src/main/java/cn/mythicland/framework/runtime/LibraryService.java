@@ -122,7 +122,12 @@ public final class LibraryService {
         );
     }
 
-    private static void downloadJar(Logger logger, LibrarySpec specification, URI repository, Path target) {
+    private static void downloadJar(
+            Logger logger,
+            LibrarySpec specification,
+            URI repository,
+            Path target
+    ) {
         URI source = repository.resolve(specification.repositoryPath());
         logger.info("Downloading dependency jar: " + target.getFileName());
         try {

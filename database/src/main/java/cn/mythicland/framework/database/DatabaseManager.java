@@ -37,7 +37,9 @@ public final class DatabaseManager implements AutoCloseable {
                 exception.addSuppressed(closeFailure);
             }
             if (exception instanceof Error error) throw error;
-            throw new IllegalStateException("Failed to initialize " + this.configuration.poolName() + " database", exception);
+            throw new IllegalStateException("Failed to initialize " + this.configuration.poolName() + " database",
+                    exception
+            );
         }
     }
 
@@ -101,7 +103,8 @@ public final class DatabaseManager implements AutoCloseable {
             } catch (FlywayValidateException exception) {
                 if (!this.configuration.repairOnValidationError()) throw exception;
                 this.logger.warning("Flyway validation failed, repairing schema history and retrying migration: "
-                        + exception.getMessage());
+                        + exception.getMessage()
+                );
                 flyway.repair();
                 flyway.migrate();
             }

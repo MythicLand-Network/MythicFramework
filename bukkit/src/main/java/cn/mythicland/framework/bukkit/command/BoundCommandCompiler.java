@@ -46,7 +46,8 @@ final class BoundCommandCompiler {
             }
         }
         handlers.sort(Comparator.comparingInt((Method method) -> method.getAnnotation(CommandRoute.class).order())
-                .thenComparing(Method::getName).thenComparing(method -> Arrays.toString(method.getParameterTypes())));
+                .thenComparing(Method::getName).thenComparing(method -> Arrays.toString(method.getParameterTypes()))
+        );
         if (handlers.isEmpty()) throw new IllegalStateException("Command component has no @CommandRoute methods");
         CommandNode tree = null;
         Set<String> names = new HashSet<>();
@@ -77,7 +78,9 @@ final class BoundCommandCompiler {
                 if (!alternate.contains(" ") && path.contains(" "))
                     alternate = path.substring(0, path.lastIndexOf(' ') + 1) + alternate;
                 tree = tree.merge(route(root, alternate, path, usage, route, component, method, completion, permission,
-                        sequence));
+                                sequence
+                )
+                );
             }
             sequence++;
         }
@@ -118,11 +121,12 @@ final class BoundCommandCompiler {
             leaf.suggest(argument == null ? SuggestionProvider.empty() : suggestions.apply(argument));
         }
         if (completer != null) leaf.complete(context -> {
-            Object result = invoke(component, completer, context);
-            if (result == null) return List.of();
-            @SuppressWarnings("unchecked") List<String> values = (List<String>) result;
-            return List.copyOf(values);
-        });
+                    Object result = invoke(component, completer, context);
+                    if (result == null) return List.of();
+                    @SuppressWarnings("unchecked") List<String> values = (List<String>) result;
+                    return List.copyOf(values);
+                }
+        );
         CommandNode current = leaf.build();
         for (int index = parts.length - 2; index >= 0; index--)
             current = CommandNode.literal(parts[index]).child(current).build();

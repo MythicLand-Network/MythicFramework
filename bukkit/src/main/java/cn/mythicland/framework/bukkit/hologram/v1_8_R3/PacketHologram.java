@@ -77,9 +77,11 @@ public class PacketHologram implements HologramDisplay {
 
     public void hide(Player player) {
         send(
-                player, new PacketPlayOutEntityDestroy(Stream.concat(
+                player,
+                new PacketPlayOutEntityDestroy(Stream.concat(
                         this.stands.stream(), this.clickTargets.stream()
-                ).mapToInt(EntityArmorStand::getId).toArray())
+                ).mapToInt(EntityArmorStand::getId).toArray()
+                )
         );
     }
 

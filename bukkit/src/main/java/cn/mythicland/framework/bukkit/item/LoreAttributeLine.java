@@ -10,7 +10,12 @@ import java.util.Objects;
  * @param value      the parsed numeric value or range
  * @param source     the original lore line
  */
-public record LoreAttributeLine(String label, String labelColor, NumericRange value, String source) {
+public record LoreAttributeLine(
+        String label,
+        String labelColor,
+        NumericRange value,
+        String source
+) {
 
     public LoreAttributeLine {
         Objects.requireNonNull(label, "label");

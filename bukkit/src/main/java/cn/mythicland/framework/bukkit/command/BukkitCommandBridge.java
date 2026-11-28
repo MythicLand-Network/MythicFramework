@@ -31,7 +31,12 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] arguments) {
+    public boolean onCommand(
+            CommandSender sender,
+            Command command,
+            String label,
+            String[] arguments
+    ) {
         try {
             String[] input = arguments == null ? new String[0] : arguments;
             if (this.spec.configuredHelp()) return this.configuredHandling.execute(sender, label, input);
@@ -48,7 +53,12 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] arguments) {
+    public List<String> onTabComplete(
+            CommandSender sender,
+            Command command,
+            String alias,
+            String[] arguments
+    ) {
         String[] input = arguments == null ? new String[0] : arguments;
         if (this.spec.configuredHelp()) return this.configuredHandling.complete(sender, alias, input);
         return this.suggest(sender, alias, input);
@@ -97,7 +107,8 @@ public final class BukkitCommandBridge implements CommandExecutor, TabCompleter 
         String prefix = arguments.length == 0 ? "" : arguments[arguments.length - 1];
         int argumentIndex = Math.max(0, arguments.length - consumed - 1);
         CommandContext context = new CommandContext(sender, label,
-                arguments.length == 0 ? List.of() : Arrays.asList(arguments).subList(consumed, arguments.length));
+                arguments.length == 0 ? List.of() : Arrays.asList(arguments).subList(consumed, arguments.length)
+        );
         Set<String> values = new LinkedHashSet<>();
         for (CommandNode child : current.children()) {
             if (child.canUse(sender)) values.add(child.name());

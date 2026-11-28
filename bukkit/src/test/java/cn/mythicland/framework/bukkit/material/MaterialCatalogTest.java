@@ -23,7 +23,9 @@ class MaterialCatalogTest {
         List<MaterialEntry> matches = MaterialCatalog.bundled().search("青金石");
 
         assertTrue(matches.stream().anyMatch(entry -> entry.materialName().equals("INK_SACK")
-                && entry.data() == 4));
+                        && entry.data() == 4
+        )
+        );
         assertTrue(matches.stream().anyMatch(entry -> entry.materialName().equals("LAPIS_ORE")));
     }
 }

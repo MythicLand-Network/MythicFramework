@@ -49,16 +49,23 @@ class DiagnosticEventsTest {
             calls.incrementAndGet();
             throw originalFailure;
         };
-        RegisteredListener registration = new RegisteredListener(listener, original, EventPriority.NORMAL, plugin, false);
+        RegisteredListener registration =
+                new RegisteredListener(listener, original, EventPriority.NORMAL, plugin, false);
         HandlerList handlers = new HandlerList();
         handlers.register(registration);
         DiagnosticRecorder recorder = this.recorder();
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
-            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(UUID.randomUUID()), () -> 0, () -> 0, listenerOptions());
+            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId),
+                    Set.of(UUID.randomUUID()), () -> 0, () -> 0, listenerOptions()
+            );
             try {
-                assertSame(originalFailure, assertThrows(IllegalStateException.class,
-                        () -> registration.callEvent(new CombatDiagnosticEvent(UUID.randomUUID()))));
+                assertSame(
+                        originalFailure,
+                        assertThrows(IllegalStateException.class,
+                                () -> registration.callEvent(new CombatDiagnosticEvent(UUID.randomUUID()))
+                        )
+                );
                 assertEquals(1, calls.get());
             } finally {
                 probe.close();
@@ -80,14 +87,19 @@ class DiagnosticEventsTest {
         Listener listener = new Listener() {
         };
         UUID selected = UUID.randomUUID();
-        RegisteredListener registration = new RegisteredListener(listener, (ignored, event) -> ((Cancellable) event).setCancelled(true),
-                EventPriority.HIGH, plugin, false);
+        RegisteredListener registration =
+                new RegisteredListener(listener, (ignored, event) -> ((Cancellable) event).setCancelled(true),
+                        EventPriority.HIGH, plugin, false
+                );
         HandlerList handlers = new HandlerList();
         handlers.register(registration);
         DiagnosticRecorder recorder = this.recorder();
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getPluginManager).thenReturn(mock(PluginManager.class));
-            DiagnosticEvents probe = new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(selected), () -> 17, () -> 19, listenerOptions());
+            DiagnosticEvents probe =
+                    new DiagnosticEvents(plugin, recorder, new DiagnosticIds(recorder::nextId), Set.of(selected),
+                            () -> 17, () -> 19, listenerOptions()
+                    );
             try {
                 CombatDiagnosticEvent event = new CombatDiagnosticEvent(selected);
                 registration.callEvent(event);
@@ -106,12 +118,17 @@ class DiagnosticEventsTest {
             for (Path file : files.filter(path -> path.toString().endsWith(".jsonl.gz"))
                     .toList()) {
                 try (var reader = new BufferedReader(new InputStreamReader(
-                        new GZIPInputStream(Files.newInputStream(file)), StandardCharsets.UTF_8))) {
+                        new GZIPInputStream(Files.newInputStream(file)), StandardCharsets.UTF_8
+                )
+                )) {
                     cancelledState |= reader.lines()
                             .map(line -> new JsonParser().parse(line))
                             .map(JsonElement::getAsJsonObject)
                             .filter(record -> record.get("stage").getAsString().equals("event.state"))
-                            .anyMatch(record -> record.getAsJsonObject("fields").getAsJsonObject("state").get("cancelled").getAsBoolean());
+                            .anyMatch(
+                                    record -> record.getAsJsonObject("fields").getAsJsonObject("state").get("cancelled")
+                                            .getAsBoolean()
+                            );
                 }
             }
             assertTrue(cancelledState, "Listener cancellation must be present in the recorded event state");
@@ -120,18 +137,23 @@ class DiagnosticEventsTest {
 
     private static DiagnosticOptions listenerOptions() {
         return new DiagnosticOptions(Set.of(DiagnosticOptions.PacketGroup.COMBAT),
-                Set.of(DiagnosticOptions.Detail.LISTENERS), 1800, 1);
+                Set.of(DiagnosticOptions.Detail.LISTENERS), 1800, 1
+        );
     }
 
     private DiagnosticRecorder recorder() throws Exception {
-        return new DiagnosticRecorder(this.directory, new DiagnosticRecorder.Limits(
-                Duration.ofMinutes(30),
-                8192,
-                1024 * 1024,
-                4 * 1024 * 1024,
-                0,
-                128
-        ), Map.of());
+        return new DiagnosticRecorder(
+                this.directory,
+                new DiagnosticRecorder.Limits(
+                        Duration.ofMinutes(30),
+                        8192,
+                        1024 * 1024,
+                        4 * 1024 * 1024,
+                        0,
+                        128
+                ),
+                Map.of()
+        );
     }
 
     private static final class CombatDiagnosticEvent extends Event implements Cancellable {

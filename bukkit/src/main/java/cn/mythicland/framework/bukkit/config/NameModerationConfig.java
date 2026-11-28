@@ -5,7 +5,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class NameModerationConfig {
-    private NameModerationConfig() {}
+    private NameModerationConfig() {
+    }
 
     public static NameModeration load(ConfigurationSection configuration, JavaPlugin plugin) {
         String key = "name-moderation.enabled";

@@ -22,7 +22,11 @@ class SchematicWorkQueueTest {
         DispenserRegistry.c();
         Queue<Runnable> ticks = new ArrayDeque<>();
         TaskScheduler scheduler = mock(TaskScheduler.class);
-        doAnswer(call -> { ticks.add(call.getArgument(0)); return null; }).when(scheduler).executeSyncLater(any(), anyLong());
+        doAnswer(call -> {
+                    ticks.add(call.getArgument(0));
+                    return null;
+                }
+        ).when(scheduler).executeSyncLater(any(), anyLong());
         World world = mock(World.class);
         when(world.getMaxHeight()).thenReturn(256);
         Chunk handle = mock(Chunk.class);
@@ -31,14 +35,31 @@ class SchematicWorkQueueTest {
         when(chunk.getHandle()).thenReturn(handle);
         List<Integer> loaded = new ArrayList<>();
         when(world.getChunkAt(anyInt(), anyInt())).thenAnswer(call -> {
-            loaded.add(call.getArgument(0));
-            return chunk;
-        });
+                    loaded.add(call.getArgument(0));
+                    return chunk;
+                }
+        );
         try (SchematicWorkQueue edits = new SchematicWorkQueue(scheduler, Runnable::run,
-                new SchematicWorkQueue.Budget(1000, 1_000_000_000, 1, 2))) {
-            var first = edits.prepare(world, new SchematicWorkQueue.Bounds(0, 64, 0, 32, 1, 16), progress -> {});
-            var second = edits.prepare(world, new SchematicWorkQueue.Bounds(160, 64, 0, 32, 1, 16), progress -> {});
-            var cancelled = edits.prepare(world, new SchematicWorkQueue.Bounds(320, 64, 0, 16, 1, 16), progress -> {});
+                new SchematicWorkQueue.Budget(1000, 1_000_000_000, 1, 2)
+        )) {
+            var first = edits.prepare(
+                    world,
+                    new SchematicWorkQueue.Bounds(0, 64, 0, 32, 1, 16),
+                    progress -> {
+                    }
+            );
+            var second = edits.prepare(
+                    world,
+                    new SchematicWorkQueue.Bounds(160, 64, 0, 32, 1, 16),
+                    progress -> {
+                    }
+            );
+            var cancelled = edits.prepare(
+                    world,
+                    new SchematicWorkQueue.Bounds(320, 64, 0, 16, 1, 16),
+                    progress -> {
+                    }
+            );
             cancelled.cancel().run();
             for (int tick = 0; !ticks.isEmpty() && tick < 10; tick++) {
                 int previous = loaded.size();

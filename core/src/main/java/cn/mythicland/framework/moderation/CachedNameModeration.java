@@ -21,19 +21,24 @@ final class CachedNameModeration implements NameModeration {
 
     @Override
     public CompletableFuture<Verdict> check(String name) {
-        return this.pending.getOrStartLoading(name, () -> {
-            Result cached = this.results.get(name);
-            if (cached != null && this.clock.getAsLong() - cached.createdAtNanos() < TTL_NANOS) {
-                return CompletableFuture.completedFuture(cached.verdict());
-            }
-            return this.provider.check(name).thenApply(verdict -> {
-                if (verdict != Verdict.UNAVAILABLE) {
-                    this.results.put(name, new Result(verdict, this.clock.getAsLong()));
+        return this.pending.getOrStartLoading(
+                name,
+                () -> {
+                    Result cached = this.results.get(name);
+                    if (cached != null && this.clock.getAsLong() - cached.createdAtNanos() < TTL_NANOS) {
+                        return CompletableFuture.completedFuture(cached.verdict());
+                    }
+                    return this.provider.check(name).thenApply(verdict -> {
+                                if (verdict != Verdict.UNAVAILABLE) {
+                                    this.results.put(name, new Result(verdict, this.clock.getAsLong()));
+                                }
+                                return verdict;
+                            }
+                    );
                 }
-                return verdict;
-            });
-        }).copy();
+        ).copy();
     }
 
-    private record Result(Verdict verdict, long createdAtNanos) {}
+    private record Result(Verdict verdict, long createdAtNanos) {
+    }
 }

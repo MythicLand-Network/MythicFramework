@@ -25,14 +25,17 @@ public final class EnchantmentCatalog {
         return new EnchantmentCatalog(Arrays.stream(Enchantment.values())
                 .filter(enchantment -> enchantment != null && enchantment.getName() != null)
                 .map(enchantment -> new EnchantmentEntry(
-                        enchantment.getName().toUpperCase(Locale.ROOT),
-                        displayName(enchantment.getName()),
-                        enchantment.getStartLevel(),
-                        enchantment.getMaxLevel()
-                ))
+                                enchantment.getName().toUpperCase(Locale.ROOT),
+                                displayName(enchantment.getName()),
+                                enchantment.getStartLevel(),
+                                enchantment.getMaxLevel()
+                )
+                )
                 .sorted(Comparator.comparing(EnchantmentEntry::displayName)
-                        .thenComparing(EnchantmentEntry::key))
-                .toList());
+                        .thenComparing(EnchantmentEntry::key)
+                )
+                .toList()
+        );
     }
 
     private static String displayName(String raw) {

@@ -10,7 +10,8 @@ import java.util.function.Supplier;
 
 final class WorldSaveQueue implements AutoCloseable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable ->
-            new Thread(runnable, "MythicFramework-World-Save"));
+            new Thread(runnable, "MythicFramework-World-Save")
+    );
     private final Set<String> pending = new HashSet<>();
     private boolean closed;
 
@@ -21,19 +22,20 @@ final class WorldSaveQueue implements AutoCloseable {
             SaveOperation operation = snapshot.get();
             CompletableFuture<Void> result = new CompletableFuture<>();
             this.executor.execute(() -> {
-                Throwable failure = null;
-                try {
-                    operation.write();
-                } catch (Throwable exception) {
-                    failure = exception;
-                } finally {
-                    synchronized (this) {
-                        this.pending.remove(name);
+                        Throwable failure = null;
+                        try {
+                            operation.write();
+                        } catch (Throwable exception) {
+                            failure = exception;
+                        } finally {
+                            synchronized (this) {
+                                this.pending.remove(name);
+                            }
+                        }
+                        if (failure == null) result.complete(null);
+                        else result.completeExceptionally(failure);
                     }
-                }
-                if (failure == null) result.complete(null);
-                else result.completeExceptionally(failure);
-            });
+            );
             return result;
         } catch (RuntimeException | Error exception) {
             this.pending.remove(name);

@@ -113,8 +113,11 @@ public final class JsonCodec {
                 try {
                     components.put(component.getName(), component.getAccessor().invoke(value));
                 } catch (IllegalAccessException | InvocationTargetException exception) {
-                    throw new IllegalArgumentException("Cannot serialize record component "
-                            + component.getName(), exception);
+                    throw new IllegalArgumentException(
+                            "Cannot serialize record component "
+                                    + component.getName(),
+                            exception
+                    );
                 }
             }
             write(components, output);

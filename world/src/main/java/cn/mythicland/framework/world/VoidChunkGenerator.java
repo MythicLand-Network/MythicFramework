@@ -13,7 +13,13 @@ public final class VoidChunkGenerator extends ChunkGenerator {
     }
 
     @Override
-    public byte[][] generateBlockSections(World world, Random random, int x, int z, BiomeGrid biomes) {
+    public byte[][] generateBlockSections(
+            World world,
+            Random random,
+            int x,
+            int z,
+            BiomeGrid biomes
+    ) {
         return new byte[world.getMaxHeight() >> 4][];
     }
 

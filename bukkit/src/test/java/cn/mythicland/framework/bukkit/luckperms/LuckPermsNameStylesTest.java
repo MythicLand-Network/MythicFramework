@@ -71,18 +71,26 @@ class LuckPermsNameStylesTest {
         when(users.loadUser(playerId)).thenReturn(loaded);
         when(this.user.getQueryOptions()).thenReturn(this.options);
         this.staffPrefix("&4[服主]");
-        CompletableFuture<PlayerNameStyle> result = this.styles.lookup(playerId, "staff", () -> {
-            fail("Staff style must not load membership data");
-            return null;
-        });
+        CompletableFuture<PlayerNameStyle> result = this.styles.lookup(
+                playerId,
+                "staff",
+                () -> {
+                    fail("Staff style must not load membership data");
+                    return null;
+                }
+        );
         assertFalse(result.isDone());
         loaded.complete(this.user);
         assertEquals("&4Steve", result.join().coloredName("Steve"));
 
         when(this.user.getInheritedGroups(this.options)).thenReturn(List.of());
         PlayerNameStyle member = new PlayerNameStyle("&b[MVP]");
-        assertSame(member, this.styles.lookup(playerId, "staff",
-                () -> CompletableFuture.completedFuture(member)).join());
+        assertSame(
+                member,
+                this.styles.lookup(playerId, "staff",
+                        () -> CompletableFuture.completedFuture(member)
+                ).join()
+        );
     }
 
     @Test
@@ -94,17 +102,25 @@ class LuckPermsNameStylesTest {
         when(this.user.getQueryOptions()).thenReturn(this.options);
         this.staffPrefix("&4[服主]");
 
-        PlayerNameStyle result = this.styles.lookup(playerId, "staff", () -> {
-            fail("Staff style must not load membership data");
-            return null;
-        }).join();
+        PlayerNameStyle result = this.styles.lookup(
+                playerId,
+                "staff",
+                () -> {
+                    fail("Staff style must not load membership data");
+                    return null;
+                }
+        ).join();
 
         assertEquals("&4Steve", result.coloredName("Steve"));
         verify(users, never()).loadUser(any(UUID.class));
         when(this.user.getInheritedGroups(this.options)).thenReturn(List.of());
         PlayerNameStyle member = new PlayerNameStyle("&b[MVP]");
-        assertSame(member, this.styles.lookup(playerId, "staff",
-                () -> CompletableFuture.completedFuture(member)).join());
+        assertSame(
+                member,
+                this.styles.lookup(playerId, "staff",
+                        () -> CompletableFuture.completedFuture(member)
+                ).join()
+        );
         verify(users, never()).loadUser(any(UUID.class));
     }
 

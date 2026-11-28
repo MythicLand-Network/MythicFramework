@@ -175,7 +175,8 @@ public final class PluginBootstrap implements AutoCloseable {
             Object component = components.resolve(componentType);
             if (!(component instanceof Listener listener)) {
                 throw new IllegalStateException(
-                        "Listener component is not a Bukkit Listener: " + componentType.getName());
+                        "Listener component is not a Bukkit Listener: " + componentType.getName()
+                );
             }
             listeners.registerListener(plugin, listener);
         }
@@ -194,7 +195,8 @@ public final class PluginBootstrap implements AutoCloseable {
             PluginCommand command = plugin.getCommand(commandName);
             if (command == null) throw new IllegalStateException("Command is missing from plugin.yml: " + commandName);
             BukkitCommandBridge router = new BukkitCommandBridge(plugin,
-                    new CommandRouteCompiler(components.resolver()).compileBound(value));
+                    new CommandRouteCompiler(components.resolver()).compileBound(value)
+            );
             commands.registerCommand(command, router, router);
             if (annotation.takeOverGlobalMapping()) {
                 GlobalCommandTakeover globalTakeover = new GlobalCommandTakeover(plugin, commandName);

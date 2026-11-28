@@ -100,7 +100,8 @@ public final class ScheduledTaskLifecycle implements ManagedLifecycle {
         scheduledMethods.sort(Comparator
                 .comparing((ScheduledMethod value) -> value.componentType().getName())
                 .thenComparing(value -> value.method().getName())
-                .thenComparing(value -> value.method().toGenericString()));
+                .thenComparing(value -> value.method().toGenericString())
+        );
         return scheduledMethods;
     }
 

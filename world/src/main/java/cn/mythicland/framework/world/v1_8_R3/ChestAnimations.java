@@ -41,8 +41,11 @@ public final class ChestAnimations {
     }
 
     private int decrement(Location location) {
-        Integer count = this.viewers.compute(BlockKey.at(location), (key, current) ->
-                current == null || current <= 1 ? null : current - 1);
+        Integer count = this.viewers.compute(
+                BlockKey.at(location),
+                (key, current) ->
+                        current == null || current <= 1 ? null : current - 1
+        );
         return count == null ? 0 : count;
     }
 
@@ -50,10 +53,12 @@ public final class ChestAnimations {
         World world = location.getWorld();
         if (!world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) return;
         Material material = location.getBlock().getType();
-        if (material != Material.CHEST && material != Material.TRAPPED_CHEST && material != Material.ENDER_CHEST) return;
+        if (material != Material.CHEST && material != Material.TRAPPED_CHEST && material != Material.ENDER_CHEST)
+            return;
         WorldServer handle = ((CraftWorld) world).getHandle();
         BlockPosition position = new BlockPosition(location.getBlockX(), location.getBlockY(), location.getBlockZ());
-        PacketPlayOutBlockAction packet = new PacketPlayOutBlockAction(position, handle.getType(position).getBlock(), 1, count);
+        PacketPlayOutBlockAction packet =
+                new PacketPlayOutBlockAction(position, handle.getType(position).getBlock(), 1, count);
         Location center = location.clone().add(.5, .5, .5);
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distanceSquared(center) > 64 * 64) continue;
@@ -63,7 +68,9 @@ public final class ChestAnimations {
 
     private record BlockKey(UUID world, int x, int y, int z) {
         private static BlockKey at(Location location) {
-            return new BlockKey(location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+            return new BlockKey(location.getWorld().getUID(), location.getBlockX(), location.getBlockY(),
+                    location.getBlockZ()
+            );
         }
     }
 }

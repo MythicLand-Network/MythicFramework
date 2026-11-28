@@ -11,6 +11,7 @@ import net.minecraft.server.v1_8_R3.EnumProtocol;
 import net.minecraft.server.v1_8_R3.EnumProtocolDirection;
 import net.minecraft.server.v1_8_R3.Packet;
 import net.minecraft.server.v1_8_R3.PacketDataSerializer;
+
 import java.lang.reflect.Constructor;
 
 import java.io.IOException;
@@ -57,7 +58,8 @@ final class DiagnosticWire extends ChannelOutboundHandlerAdapter {
 
     void position(ChannelPipeline pipeline, String name) {
         String anchor = pipeline.get("compress") == null ? "prepender" : "compress";
-        if (pipeline.get(anchor) == null) throw new IllegalStateException("Missing outbound frame boundary: " + pipeline.names());
+        if (pipeline.get(anchor) == null)
+            throw new IllegalStateException("Missing outbound frame boundary: " + pipeline.names());
         var names = pipeline.names();
         if (names.indexOf(name) == names.indexOf(anchor) + 1) return;
         if (pipeline.get(name) != null) pipeline.remove(name);
@@ -89,7 +91,8 @@ final class DiagnosticWire extends ChannelOutboundHandlerAdapter {
             throw new IllegalArgumentException("Encoded diagnostic packet exceeds 2 MiB");
         Packet packet = constructor.newInstance();
         packet.a(input);
-        if (input.isReadable()) throw new IllegalArgumentException("Trailing bytes in encoded " + packet.getClass().getSimpleName());
+        if (input.isReadable())
+            throw new IllegalArgumentException("Trailing bytes in encoded " + packet.getClass().getSimpleName());
         if (!this.selection.relevant(this.observer, packet, true)) return;
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("player", this.observer.toString());

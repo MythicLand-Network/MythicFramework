@@ -32,26 +32,29 @@ public final class FileTreeOperations {
         }
 
         AtomicInteger deletedEntries = new AtomicInteger();
-        Files.walkFileTree(path, new SimpleFileVisitor<>() {
-            @Override
-            public @Nonnull FileVisitResult visitFile(
-                    @Nonnull Path file,
-                    @Nonnull BasicFileAttributes attributes
-            ) throws IOException {
-                deletedEntries.addAndGet(deleteEntry(file));
-                return FileVisitResult.CONTINUE;
-            }
+        Files.walkFileTree(
+                path,
+                new SimpleFileVisitor<>() {
+                    @Override
+                    public @Nonnull FileVisitResult visitFile(
+                            @Nonnull Path file,
+                            @Nonnull BasicFileAttributes attributes
+                    ) throws IOException {
+                        deletedEntries.addAndGet(deleteEntry(file));
+                        return FileVisitResult.CONTINUE;
+                    }
 
-            @Override
-            public @Nonnull FileVisitResult postVisitDirectory(
-                    @Nonnull Path directory,
-                    @Nullable IOException exception
-            ) throws IOException {
-                if (exception != null) throw exception;
-                deletedEntries.addAndGet(deleteEntry(directory));
-                return FileVisitResult.CONTINUE;
-            }
-        });
+                    @Override
+                    public @Nonnull FileVisitResult postVisitDirectory(
+                            @Nonnull Path directory,
+                            @Nullable IOException exception
+                    ) throws IOException {
+                        if (exception != null) throw exception;
+                        deletedEntries.addAndGet(deleteEntry(directory));
+                        return FileVisitResult.CONTINUE;
+                    }
+                }
+        );
         return deletedEntries.get();
     }
 
@@ -73,23 +76,26 @@ public final class FileTreeOperations {
         }
 
         AtomicInteger deletedDirectories = new AtomicInteger();
-        Files.walkFileTree(rootDirectory, new SimpleFileVisitor<>() {
-            @Override
-            public @Nonnull FileVisitResult postVisitDirectory(
-                    @Nonnull Path directory,
-                    @Nullable IOException exception
-            ) throws IOException {
-                if (exception != null) throw exception;
-                if (directory.equals(rootDirectory) || Files.isSymbolicLink(directory)) {
-                    return FileVisitResult.CONTINUE;
-                }
+        Files.walkFileTree(
+                rootDirectory,
+                new SimpleFileVisitor<>() {
+                    @Override
+                    public @Nonnull FileVisitResult postVisitDirectory(
+                            @Nonnull Path directory,
+                            @Nullable IOException exception
+                    ) throws IOException {
+                        if (exception != null) throw exception;
+                        if (directory.equals(rootDirectory) || Files.isSymbolicLink(directory)) {
+                            return FileVisitResult.CONTINUE;
+                        }
 
-                try (Stream<Path> children = Files.list(directory)) {
-                    if (children.findAny().isEmpty()) deletedDirectories.addAndGet(deleteEntry(directory));
+                        try (Stream<Path> children = Files.list(directory)) {
+                            if (children.findAny().isEmpty()) deletedDirectories.addAndGet(deleteEntry(directory));
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
                 }
-                return FileVisitResult.CONTINUE;
-            }
-        });
+        );
         return deletedDirectories.get();
     }
 

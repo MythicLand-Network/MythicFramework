@@ -21,7 +21,8 @@ class MenuPageLayoutTest {
         };
         for (int[] boundary : cases) {
             assertEquals(boundary[1], MenuPageLayout.compactSize(boundary[0]),
-                    "Menu size for " + boundary[0] + " entries");
+                    "Menu size for " + boundary[0] + " entries"
+            );
         }
     }
 
@@ -35,7 +36,8 @@ class MenuPageLayoutTest {
         List<Integer> entries = IntStream.range(0, 31).boxed().toList();
         List<String> visited = new ArrayList<>();
         PageWindow window = MenuPageLayout.forEachEntry(entries, 99,
-                (slot, entry) -> visited.add(slot + ":" + entry));
+                (slot, entry) -> visited.add(slot + ":" + entry)
+        );
         assertEquals(1, window.page());
         assertEquals(List.of("10:28", "11:29", "12:30"), visited);
         visited.clear();

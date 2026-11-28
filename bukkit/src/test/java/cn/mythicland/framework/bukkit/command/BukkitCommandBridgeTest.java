@@ -14,10 +14,11 @@ final class BukkitCommandBridgeTest {
     @Test
     void rootShouldReportNoPermissionWhenEverySubcommandIsUnavailable() {
         BukkitCommandBridge bridge = newBridge(CommandSpec.of(
-                CommandNode.root("membership")
-                        .child(command("set", "mythicmembership.admin", "/membership set"))
-                        .build()
-        ));
+                        CommandNode.root("membership")
+                                .child(command("set", "mythicmembership.admin", "/membership set"))
+                                .build()
+        )
+        );
         CommandSender sender = mock(CommandSender.class);
         when(sender.hasPermission("mythicmembership.admin")).thenReturn(false);
 
@@ -30,11 +31,12 @@ final class BukkitCommandBridgeTest {
     @Test
     void rootShouldOnlyShowUsagesAvailableToSender() {
         BukkitCommandBridge bridge = newBridge(CommandSpec.of(
-                CommandNode.root("membership")
-                        .child(command("info", null, "/membership info"))
-                        .child(command("set", "mythicmembership.admin", "/membership set"))
-                        .build()
-        ));
+                        CommandNode.root("membership")
+                                .child(command("info", null, "/membership info"))
+                                .child(command("set", "mythicmembership.admin", "/membership set"))
+                                .build()
+        )
+        );
         CommandSender sender = mock(CommandSender.class);
         when(sender.hasPermission("mythicmembership.admin")).thenReturn(false);
 
@@ -50,7 +52,8 @@ final class BukkitCommandBridgeTest {
                 .permission(permission)
                 .usage(usage)
                 .execute(context -> {
-                })
+                        }
+                )
                 .build();
     }
 

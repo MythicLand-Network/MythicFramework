@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
-/** Traverses literal command paths while leaving execution and presentation to the caller. */
+/**
+ * Traverses literal command paths while leaving execution and presentation to the caller.
+ */
 public final class CommandPath {
     private CommandPath() {
     }

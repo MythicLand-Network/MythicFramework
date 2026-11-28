@@ -27,9 +27,11 @@ final class TickWorkQueueTest {
         for (int index = 0; index < 5; index++) {
             int value = index;
             results.add(queue.submit(() -> {
-                completed.add(value);
-                return value;
-            }));
+                                completed.add(value);
+                                return value;
+                            }
+            )
+            );
         }
         assertEquals(1, this.ticks.size());
         assertTrue(completed.isEmpty());
@@ -49,9 +51,10 @@ final class TickWorkQueueTest {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         List<CompletableFuture<Integer>> nested = new ArrayList<>();
         CompletableFuture<Integer> failed = queue.submit(() -> {
-            nested.add(queue.submit(() -> 7));
-            throw new IllegalStateException("invalid payload");
-        });
+                    nested.add(queue.submit(() -> 7));
+                    throw new IllegalStateException("invalid payload");
+                }
+        );
         CompletableFuture<Integer> next = queue.submit(() -> 3);
         this.tick();
         assertTrue(failed.isCompletedExceptionally());
@@ -70,9 +73,10 @@ final class TickWorkQueueTest {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         assertFalse(queue.hasBudget());
         queue.execute(() -> {
-            assertTrue(queue.hasBudget());
-            throw new IllegalStateException("invalid initialization");
-        });
+                    assertTrue(queue.hasBudget());
+                    throw new IllegalStateException("invalid initialization");
+                }
+        );
         CompletableFuture<Boolean> next = queue.submit(queue::hasBudget);
 
         assertThrows(IllegalStateException.class, this::tick);
@@ -87,9 +91,10 @@ final class TickWorkQueueTest {
     void yieldsWhenTheTimeBudgetIsExhausted() {
         TickWorkQueue queue = this.queue(4, 1L);
         CompletableFuture<Integer> first = queue.submit(() -> {
-            assertFalse(queue.hasBudget());
-            return 1;
-        });
+                    assertFalse(queue.hasBudget());
+                    return 1;
+                }
+        );
         CompletableFuture<Integer> second = queue.submit(() -> 2);
         this.tick();
         assertEquals(1, first.join());
@@ -104,8 +109,9 @@ final class TickWorkQueueTest {
         List<Integer> completed = new ArrayList<>();
         queue.execute(() -> completed.add(1));
         queue.execute(() -> {
-            throw new IllegalStateException("invalid initialization");
-        });
+                    throw new IllegalStateException("invalid initialization");
+                }
+        );
         CompletableFuture<Integer> last = queue.submit(() -> 3);
         this.tick();
         assertEquals(List.of(1), completed);
@@ -123,9 +129,10 @@ final class TickWorkQueueTest {
         List<Integer> completed = new ArrayList<>();
         queue.executeLowPriority(() -> completed.add(3));
         queue.execute(() -> {
-            completed.add(1);
-            queue.execute(() -> completed.add(4));
-        });
+                    completed.add(1);
+                    queue.execute(() -> completed.add(4));
+                }
+        );
         queue.execute(() -> completed.add(2));
         this.tick();
         assertEquals(List.of(1, 2, 3), completed);
@@ -164,9 +171,10 @@ final class TickWorkQueueTest {
     private TickWorkQueue queue(int maxTasks, long budgetNanos) {
         TaskScheduler scheduler = mock(TaskScheduler.class);
         doAnswer(call -> {
-            this.ticks.add(call.getArgument(0));
-            return null;
-        }).when(scheduler).executeSyncLater(any(), eq(1L));
+                    this.ticks.add(call.getArgument(0));
+                    return null;
+                }
+        ).when(scheduler).executeSyncLater(any(), eq(1L));
         return new TickWorkQueue(scheduler, maxTasks, budgetNanos);
     }
 
@@ -175,9 +183,10 @@ final class TickWorkQueueTest {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         AtomicInteger steps = new AtomicInteger();
         CompletableFuture<Void> completion = queue.runSteps(() -> {
-            queue.yieldBudget();
-            return steps.incrementAndGet() == 2;
-        });
+                    queue.yieldBudget();
+                    return steps.incrementAndGet() == 2;
+                }
+        );
         CompletableFuture<Boolean> following = queue.submit(queue::hasBudget);
 
         this.tick();
@@ -194,11 +203,15 @@ final class TickWorkQueueTest {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         AtomicBoolean active = new AtomicBoolean(true);
         AtomicInteger steps = new AtomicInteger();
-        CompletableFuture<Void> stale = queue.runSteps(() -> {
-            steps.incrementAndGet();
-            queue.yieldBudget();
-            return false;
-        }, active::get, () -> false);
+        CompletableFuture<Void> stale = queue.runSteps(
+                () -> {
+                    steps.incrementAndGet();
+                    queue.yieldBudget();
+                    return false;
+                },
+                active::get,
+                () -> false
+        );
         this.tick();
         active.set(false);
         this.tick();
@@ -206,13 +219,15 @@ final class TickWorkQueueTest {
         assertTrue(stale.isDone());
 
         CompletableFuture<Void> cancelled = queue.runSteps(() -> {
-            steps.incrementAndGet();
-            return true;
-        });
+                    steps.incrementAndGet();
+                    return true;
+                }
+        );
         cancelled.cancel(false);
         CompletableFuture<Void> failed = queue.runSteps(() -> {
-            throw new IllegalStateException("Invalid step");
-        });
+                    throw new IllegalStateException("Invalid step");
+                }
+        );
         this.tick();
         assertEquals(1, steps.get());
         assertTrue(failed.isCompletedExceptionally());
@@ -223,18 +238,23 @@ final class TickWorkQueueTest {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         AtomicBoolean lowPriority = new AtomicBoolean();
         List<String> completed = new ArrayList<>();
-        queue.runSteps(() -> {
-            completed.add("step");
-            lowPriority.set(true);
-            queue.yieldBudget();
-            return completed.size() > 1;
-        }, () -> true, lowPriority::get);
+        queue.runSteps(
+                () -> {
+                    completed.add("step");
+                    lowPriority.set(true);
+                    queue.yieldBudget();
+                    return completed.size() > 1;
+                },
+                () -> true,
+                lowPriority::get
+        );
         this.tick();
         queue.execute(() -> {
-            completed.add("normal");
-            queue.executeIfRunning(() -> completed.add("inline"), false);
-            queue.executeIfRunning(() -> completed.add("low"), true);
-        });
+                    completed.add("normal");
+                    queue.executeIfRunning(() -> completed.add("inline"), false);
+                    queue.executeIfRunning(() -> completed.add("low"), true);
+                }
+        );
         this.tick();
         assertEquals(List.of("step", "normal", "inline", "step"), completed);
         this.tick();
@@ -254,20 +274,28 @@ final class TickWorkQueueTest {
         assertTrue(result.isCancelled());
         assertTrue(submitted.isCancelled());
         assertTrue(this.ticks.isEmpty());
-        assertThrows(RejectedExecutionException.class, () -> queue.execute(() -> {
-        }));
+        assertThrows(
+                RejectedExecutionException.class,
+                () -> queue.execute(() -> {
+                        }
+                )
+        );
     }
 
     @Test
     void closingFromQueuedWorkAlsoRejectsInlineContinuations() {
         TickWorkQueue queue = this.queue(4, TimeUnit.SECONDS.toNanos(10));
         queue.execute(() -> {
-            queue.close();
-            assertFalse(queue.hasBudget());
-            assertThrows(RejectedExecutionException.class, () -> queue.executeIfRunning(
-                    () -> fail("Closed work must not continue inline"), false
-            ));
-        });
+                    queue.close();
+                    assertFalse(queue.hasBudget());
+                    assertThrows(
+                            RejectedExecutionException.class,
+                            () -> queue.executeIfRunning(
+                                    () -> fail("Closed work must not continue inline"), false
+                            )
+                    );
+                }
+        );
         this.tick();
         assertTrue(this.ticks.isEmpty());
     }

@@ -12,7 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** Offline Anvil snapshot operations for Minecraft 1.12.2. */
+/**
+ * Offline Anvil snapshot operations for Minecraft 1.12.2.
+ */
 public final class LegacyRegionSnapshots {
 
     private LegacyRegionSnapshots() {

@@ -10,7 +10,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ContentCollectionsTest {
-    @TempDir Path root;
+    @TempDir
+    Path root;
 
     @Test
     void disabledSourcesAreIgnoredAndActiveDuplicatesAreRejected() throws Exception {
@@ -44,14 +45,17 @@ class ContentCollectionsTest {
         assertTrue(local.isConfigurationSection("exchanges.new.offers"));
         assertFalse(ContentWorkspace.readYaml(root.resolve("common/exchanges.yml")).contains("exchanges.shared"));
         assertFalse(Files.exists(root.resolve("exchanges.yml")));
-        assertEquals(2, workspace.document("exchanges.yml").yaml().getConfigurationSection("exchanges").getKeys(false).size());
+        assertEquals(2,
+                workspace.document("exchanges.yml").yaml().getConfigurationSection("exchanges").getKeys(false).size()
+        );
     }
 
     @Test
     void staleDocumentFailsBeforeAnySourceIsWritten() throws Exception {
         write("one.yml", "entries:\n  first: {value: 1}\n");
         write("two.yml", "entries:\n  second: {value: 2}\n");
-        var document = new ContentDocument(List.of(root.resolve("one.yml"), root.resolve("two.yml")), root.resolve("new.yml"));
+        var document =
+                new ContentDocument(List.of(root.resolve("one.yml"), root.resolve("two.yml")), root.resolve("new.yml"));
         document.yaml().set("entries.first.value", 9);
         write("two.yml", "entries:\n  second: {value: 3}\n");
         assertThrows(java.io.UncheckedIOException.class, document::save);

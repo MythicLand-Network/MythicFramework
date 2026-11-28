@@ -11,8 +11,10 @@ public final class SquareSpiral {
         long side = 2 * radius;
         long offset = (2 * radius + 1) * (2 * radius + 1) - 1 - index;
         if (offset < side) return new Coordinate(Math.toIntExact(radius - offset), Math.toIntExact(-radius));
-        if (offset < 2 * side) return new Coordinate(Math.toIntExact(-radius), Math.toIntExact(-radius + offset - side));
-        if (offset < 3 * side) return new Coordinate(Math.toIntExact(-radius + offset - 2 * side), Math.toIntExact(radius));
+        if (offset < 2 * side)
+            return new Coordinate(Math.toIntExact(-radius), Math.toIntExact(-radius + offset - side));
+        if (offset < 3 * side)
+            return new Coordinate(Math.toIntExact(-radius + offset - 2 * side), Math.toIntExact(radius));
         return new Coordinate(Math.toIntExact(radius), Math.toIntExact(radius - offset + 3 * side));
     }
 

@@ -17,10 +17,13 @@ class MenuButtonsTest {
         Player player = mock(Player.class);
         AtomicInteger actions = new AtomicInteger();
         AtomicBoolean successful = new AtomicBoolean();
-        AbstractButton button = MenuButtons.selection(mock(ItemStack.class), (viewer, click, menus) -> {
-            actions.incrementAndGet();
-            return successful.get();
-        });
+        AbstractButton button = MenuButtons.selection(
+                mock(ItemStack.class),
+                (viewer, click, menus) -> {
+                    actions.incrementAndGet();
+                    return successful.get();
+                }
+        );
         try (MockedStatic<MenuSelection> feedback = mockStatic(MenuSelection.class)) {
             button.onClick(player, ClickType.SHIFT_LEFT, null);
             assertEquals(0, actions.get());
@@ -37,10 +40,13 @@ class MenuButtonsTest {
     void plainActionsReceiveTheOwningManagerWithoutSelectionSound() {
         Player player = mock(Player.class);
         MenuManager menus = mock(MenuManager.class);
-        AbstractButton button = MenuButtons.action(mock(ItemStack.class), (viewer, click, owner) -> {
-            owner.refresh(viewer);
-            return true;
-        });
+        AbstractButton button = MenuButtons.action(
+                mock(ItemStack.class),
+                (viewer, click, owner) -> {
+                    owner.refresh(viewer);
+                    return true;
+                }
+        );
         try (MockedStatic<MenuSelection> feedback = mockStatic(MenuSelection.class)) {
             button.onClick(player, ClickType.LEFT, menus);
             verify(menus).refresh(player);

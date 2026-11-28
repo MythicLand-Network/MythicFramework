@@ -47,9 +47,10 @@ class ManagedRuntimePluginTest {
         doReturn("Test").when(plugin).getName();
         doThrow(new IllegalStateException("startup failed")).when(runtime).enable();
         doAnswer(invocation -> {
-            plugin.onDisable();
-            return null;
-        }).when(manager).disablePlugin(plugin);
+                    plugin.onDisable();
+                    return null;
+                }
+        ).when(manager).disablePlugin(plugin);
 
         plugin.onEnable();
 

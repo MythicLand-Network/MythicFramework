@@ -27,12 +27,13 @@ public final class ChinesePinyinSortKey {
         StringBuilder literal = new StringBuilder(text.length());
         text.codePoints()
                 .forEach(codePoint -> ChinesePinyinSortKey.appendCodePoint(
-                        initials,
-                        fullPinyin,
-                        literal,
-                        codePoint,
-                        text
-                ));
+                                initials,
+                                fullPinyin,
+                                literal,
+                                codePoint,
+                                text
+                )
+                );
         return initials.append(LEVEL_SEPARATOR)
                 .append(fullPinyin)
                 .append(LEVEL_SEPARATOR)
@@ -50,7 +51,8 @@ public final class ChinesePinyinSortKey {
         if (Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HAN) {
             if (!Character.isBmpCodePoint(codePoint)) {
                 throw new IllegalStateException("Cannot build pinyin sort key for non-BMP Chinese character U+"
-                        + Integer.toHexString(codePoint).toUpperCase(Locale.ROOT) + " in text: " + sourceText);
+                        + Integer.toHexString(codePoint).toUpperCase(Locale.ROOT) + " in text: " + sourceText
+                );
             }
             String pinyin = ChinesePinyinSortKey.pinyin((char) codePoint, sourceText);
             initials.append(pinyin.charAt(0));
@@ -89,12 +91,14 @@ public final class ChinesePinyinSortKey {
             String[] candidates = PinyinHelper.toHanyuPinyinStringArray(character, PINYIN_FORMAT);
             if (candidates == null || candidates.length == 0) {
                 throw new IllegalStateException("Cannot build pinyin sort key for Chinese character '" + character
-                        + "' in text: " + sourceText);
+                        + "' in text: " + sourceText
+                );
             }
             return candidates[0];
         } catch (BadHanyuPinyinOutputFormatCombination exception) {
             throw new IllegalStateException("Invalid pinyin output format while sorting text: " + sourceText,
-                    exception);
+                    exception
+            );
         }
     }
 

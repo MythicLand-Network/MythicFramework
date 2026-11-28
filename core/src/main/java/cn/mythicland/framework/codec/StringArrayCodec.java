@@ -44,14 +44,16 @@ public final class StringArrayCodec {
             int count = input.readInt();
             if (count != expectedCount)
                 throw new IllegalStateException("Invalid " + this.description + " field count: expected "
-                        + expectedCount + ", actual " + count);
+                        + expectedCount + ", actual " + count
+                );
             String[] values = new String[count];
             for (int index = 0; index < count; index++) {
                 int length = input.readInt();
                 if (length < 0) continue;
                 if (length > this.maxFieldBytes)
                     throw new IllegalStateException(Character.toUpperCase(this.description.charAt(0))
-                            + this.description.substring(1) + " field is too large: " + length);
+                            + this.description.substring(1) + " field is too large: " + length
+                    );
                 byte[] bytes = input.readNBytes(length);
                 if (bytes.length != length) throw new IOException("Unexpected end of " + this.description);
                 values[index] = new String(bytes, StandardCharsets.UTF_8);

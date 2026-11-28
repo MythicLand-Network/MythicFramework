@@ -237,7 +237,8 @@ public class InventoryItemSerializer {
                         }
                         if (this.phase == Phase.CACHE)
                             this.cache.put(this.encoded,
-                                    new InventoryItemSerializer.DecodedItems(this.cached, this.weight));
+                                    new InventoryItemSerializer.DecodedItems(this.cached, this.weight)
+                            );
                         this.phase = Phase.DONE;
                     }
                     case DONE -> {

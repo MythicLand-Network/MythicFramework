@@ -23,7 +23,7 @@ class DatabaseManagerTest {
         DatabaseConfiguration configuration = DatabaseConfiguration.builder(
                         DatabaseMode.SQLITE,
                         "jdbc:sqlite:" + databaseFile
-                )
+        )
                 .sqliteFile(databaseFile)
                 .maximumPoolSize(1)
                 .minimumIdle(0)
@@ -50,7 +50,7 @@ class DatabaseManagerTest {
         DatabaseConfiguration configuration = DatabaseConfiguration.builder(
                         DatabaseMode.SQLITE,
                         "jdbc:sqlite:" + this.temporaryDirectory.resolve("database.db")
-                )
+        )
                 .sqliteFile(this.temporaryDirectory.resolve("database.db"))
                 .maximumPoolSize(1)
                 .minimumIdle(0)

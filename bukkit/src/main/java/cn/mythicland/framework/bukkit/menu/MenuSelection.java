@@ -76,7 +76,8 @@ public final class MenuSelection {
             List<String> details
     ) {
         return item(new ItemStack(Objects.requireNonNull(material, "material")), title, description,
-                options, selectedIndex, details);
+                options, selectedIndex, details
+        );
     }
 
     /**
@@ -101,7 +102,8 @@ public final class MenuSelection {
             List<String> details
     ) {
         return item(new ItemStack(Objects.requireNonNull(material, "material"), 1, durability), title, description,
-                options, selectedIndex, details);
+                options, selectedIndex, details
+        );
     }
 
     /**

@@ -23,7 +23,9 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Stream;
 
-/** Resolves a single editable content tree. File I/O belongs on the owner's I/O executor. */
+/**
+ * Resolves a single editable content tree. File I/O belongs on the owner's I/O executor.
+ */
 public final class ContentWorkspace {
     private final SafePathResolver content;
     private final String collectionDirectory;
@@ -32,6 +34,7 @@ public final class ContentWorkspace {
 
     /**
      * Opens an editable directory without migrating or publishing any data.
+     *
      * @param directory content directory
      * @throws UncheckedIOException if its optional manifest is unreadable
      */
@@ -39,7 +42,9 @@ public final class ContentWorkspace {
         this(directory, "", "");
     }
 
-    /** Opens a workspace with opt-in collections described by name, order and enabled fields. */
+    /**
+     * Opens a workspace with opt-in collections described by name, order and enabled fields.
+     */
     public ContentWorkspace(Path directory, String collectionDirectory, String descriptor) {
         content = new SafePathResolver(directory);
         this.collectionDirectory = collectionDirectory;
@@ -47,7 +52,9 @@ public final class ContentWorkspace {
         reloadManifest();
     }
 
-    /** @return the absolute editable content directory */
+    /**
+     * @return the absolute editable content directory
+     */
     public Path root() {
         return content.root();
     }
@@ -55,7 +62,7 @@ public final class ContentWorkspace {
     /**
      * Opens the server workspace for a plugin-owned store created outside a component graph.
      *
-     * @param plugin plugin with a standard server/plugins/name data directory
+     * @param plugin    plugin with a standard server/plugins/name data directory
      * @param directory sibling content directory name
      * @return content workspace
      */
@@ -79,8 +86,8 @@ public final class ContentWorkspace {
     /**
      * Initializes an absent editable document from a bundled resource.
      *
-     * @param plugin resource owner
-     * @param resource bundled resource and logical document suffix
+     * @param plugin      resource owner
+     * @param resource    bundled resource and logical document suffix
      * @param defaultPath content-relative default destination
      * @return the existing or initialized document
      * @throws UncheckedIOException if initialization fails
@@ -88,7 +95,8 @@ public final class ContentWorkspace {
     public Path resource(JavaPlugin plugin, String resource, String defaultPath) {
         Path target = resolve(plugin.getName() + "/" + resource, defaultPath);
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return target;
-        if (files.containsKey(plugin.getName() + "/" + resource)) throw new IllegalStateException("Declared content document is missing: " + target);
+        if (files.containsKey(plugin.getName() + "/" + resource))
+            throw new IllegalStateException("Declared content document is missing: " + target);
         try (InputStream input = plugin.getResource(resource)) {
             if (input == null) throw new IOException("Missing bundled resource: " + resource);
             AtomicFileStore.writeUtf8(target, new String(input.readAllBytes(), StandardCharsets.UTF_8));
@@ -114,12 +122,14 @@ public final class ContentWorkspace {
             throw new IllegalArgumentException("Unsupported content manifest: " + manifest);
         Map<String, String> nextFiles = stringMap(yaml, "files");
         nextFiles.values().forEach(content::resolveRelative);
-        if (!files.isEmpty() && !files.equals(nextFiles)) throw new IllegalStateException("Content document mappings require a server restart");
+        if (!files.isEmpty() && !files.equals(nextFiles))
+            throw new IllegalStateException("Content document mappings require a server restart");
         files = Map.copyOf(nextFiles);
     }
 
     /**
      * Lists and strictly validates definitions directly inside each resource directory.
+     *
      * @param kinds resource directory names
      * @return immutable kind-to-source-files map
      * @throws IllegalArgumentException if paths, YAML or IDs conflict
@@ -138,7 +148,9 @@ public final class ContentWorkspace {
             for (Path source : sources) {
                 for (String id : readYaml(source).getKeys(false)) {
                     Path previous = ids.putIfAbsent(id.toLowerCase(Locale.ROOT), source);
-                    if (previous != null) throw new IllegalArgumentException("Duplicate " + kind + " ID " + id + ": " + previous + " and " + source);
+                    if (previous != null) throw new IllegalArgumentException(
+                            "Duplicate " + kind + " ID " + id + ": " + previous + " and " + source
+                    );
                 }
             }
             result.put(kind, sources);
@@ -160,9 +172,11 @@ public final class ContentWorkspace {
             try (Stream<Path> entries = Files.walk(directory)) {
                 List<Path> result = new ArrayList<>();
                 for (Path path : entries.sorted().toList()) {
-                    if (Files.isSymbolicLink(path)) throw new IOException("Content path cannot be a symbolic link: " + path);
+                    if (Files.isSymbolicLink(path))
+                        throw new IOException("Content path cannot be a symbolic link: " + path);
                     String name = path.getFileName().toString();
-                    if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && (name.endsWith(".yml") || name.endsWith(".yaml"))) result.add(path);
+                    if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) &&
+                            (name.endsWith(".yml") || name.endsWith(".yaml"))) result.add(path);
                 }
                 return List.copyOf(result);
             }
@@ -180,7 +194,8 @@ public final class ContentWorkspace {
      */
     public static YamlConfiguration readYaml(Path path) {
         try {
-            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Content is not a regular file: " + path);
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                throw new IOException("Content is not a regular file: " + path);
             String text = Files.readString(path);
             Node root = new Yaml().compose(new StringReader(text));
             validateKeys(root, path, Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -194,10 +209,20 @@ public final class ContentWorkspace {
         }
     }
 
-    /** Immutable editable collection descriptor. Disabled collections never contribute source files. */
-    public record CollectionInfo(String id, String name, int order, boolean enabled) { }
+    /**
+     * Immutable editable collection descriptor. Disabled collections never contribute source files.
+     */
+    public record CollectionInfo(
+            String id,
+            String name,
+            int order,
+            boolean enabled
+    ) {
+    }
 
-    /** @return ordered descriptors; malformed metadata fails even for disabled collections */
+    /**
+     * @return ordered descriptors; malformed metadata fails even for disabled collections
+     */
     public List<CollectionInfo> collections() {
         if (collectionDirectory.isEmpty()) return List.of();
         Path directory = content.resolveSingleSegment(collectionDirectory);
@@ -213,27 +238,37 @@ public final class ContentWorkspace {
                 if (!yaml.isBoolean("enabled") || !yaml.isString("name") || yaml.getString("name").isBlank()
                         || (yaml.contains("order") && !yaml.isInt("order")))
                     throw new IllegalArgumentException("Invalid collection descriptor: " + entry);
-                for (String key : yaml.getKeys(false)) if (!Set.of("name", "enabled", "order").contains(key))
-                    throw new IllegalArgumentException("Unknown collection setting: " + entry + " / " + key);
-                result.add(new CollectionInfo(id, yaml.getString("name"), yaml.getInt("order"), yaml.getBoolean("enabled")));
+                for (String key : yaml.getKeys(false))
+                    if (!Set.of("name", "enabled", "order").contains(key))
+                        throw new IllegalArgumentException("Unknown collection setting: " + entry + " / " + key);
+                result.add(new CollectionInfo(id, yaml.getString("name"), yaml.getInt("order"),
+                                yaml.getBoolean("enabled")
+                )
+                );
             }
-            return result.stream().sorted(Comparator.comparingInt(CollectionInfo::order).thenComparing(CollectionInfo::id)).toList();
-        } catch (IOException exception) { throw new UncheckedIOException(exception); }
+            return result.stream()
+                    .sorted(Comparator.comparingInt(CollectionInfo::order).thenComparing(CollectionInfo::id)).toList();
+        } catch (IOException exception) {throw new UncheckedIOException(exception);}
     }
 
-    /** @return active source roots, including workspace-wide and shared definitions */
+    /**
+     * @return active source roots, including workspace-wide and shared definitions
+     */
     public List<Path> sourceRoots() {
         List<Path> result = new ArrayList<>();
         result.add(root());
         if (!collectionDirectory.isEmpty()) {
             result.add(content.resolveSingleSegment("common"));
-            for (CollectionInfo info : collections()) if (info.enabled())
-                result.add(content.resolveRelative(collectionDirectory + "/" + info.id()));
+            for (CollectionInfo info : collections())
+                if (info.enabled())
+                    result.add(content.resolveRelative(collectionDirectory + "/" + info.id()));
         }
         return List.copyOf(result);
     }
 
-    /** Resolves a new resource destination, rejecting unknown or disabled collection IDs. */
+    /**
+     * Resolves a new resource destination, rejecting unknown or disabled collection IDs.
+     */
     public Path destination(String collection, String relative) {
         if (collectionDirectory.isEmpty()) return content.resolveRelative(relative);
         if (collection.equals("common")) return content.resolveRelative("common/" + relative);
@@ -242,19 +277,25 @@ public final class ContentWorkspace {
         return content.resolveRelative(collectionDirectory + "/" + collection + "/" + relative);
     }
 
-    /** @return existing documents in active roots; the name must be a single safe segment */
+    /**
+     * @return existing documents in active roots; the name must be a single safe segment
+     */
     public List<Path> documents(String name) {
         content.resolveSingleSegment(name);
         return sourceRoots().stream().map(base -> base.resolve(name))
                 .filter(path -> Files.exists(path, LinkOption.NOFOLLOW_LINKS)).toList();
     }
 
-    /** Opens an aggregate document while retaining the owner of every section entry. */
+    /**
+     * Opens an aggregate document while retaining the owner of every section entry.
+     */
     public ContentDocument document(String name) {
         return new ContentDocument(documents(name), destination("common", name));
     }
 
-    /** @return the resource kind relative to its active source root */
+    /**
+     * @return the resource kind relative to its active source root
+     */
     public String kind(Path source) {
         return sourceRoots().stream().filter(base -> !base.equals(root()) && source.startsWith(base))
                 .findFirst().orElse(root()).relativize(source).getName(0).toString();
@@ -279,10 +320,12 @@ public final class ContentWorkspace {
         if (section == null) throw new IllegalArgumentException("Content manifest requires " + key);
         Map<String, String> result = new LinkedHashMap<>();
         section.getValues(true).forEach((name, value) -> {
-            if (value instanceof ConfigurationSection) return;
-            if (!(value instanceof String text) || text.isBlank()) throw new IllegalArgumentException("Invalid content manifest entry: " + name);
-            result.put(name, text);
-        });
+                    if (value instanceof ConfigurationSection) return;
+                    if (!(value instanceof String text) || text.isBlank())
+                        throw new IllegalArgumentException("Invalid content manifest entry: " + name);
+                    result.put(name, text);
+                }
+        );
         return result;
     }
 }

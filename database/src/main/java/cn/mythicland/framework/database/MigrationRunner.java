@@ -127,14 +127,15 @@ public final class MigrationRunner {
         Objects.requireNonNull(resources, "resources");
         List<Migration> migrations = resolveMigrations(resources, migrationSpecs);
         database.transaction(connection -> {
-            createHistoryTable(connection);
-            Set<Integer> appliedVersions = appliedVersions(connection);
-            for (Migration migration : migrations) {
-                if (appliedVersions.contains(migration.specification().version())) continue;
-                applyMigration(connection, migration);
-            }
-            return null;
-        });
+                    createHistoryTable(connection);
+                    Set<Integer> appliedVersions = appliedVersions(connection);
+                    for (Migration migration : migrations) {
+                        if (appliedVersions.contains(migration.specification().version())) continue;
+                        applyMigration(connection, migration);
+                    }
+                    return null;
+                }
+        );
     }
 
     private record Migration(MigrationSpec specification, String sql) {

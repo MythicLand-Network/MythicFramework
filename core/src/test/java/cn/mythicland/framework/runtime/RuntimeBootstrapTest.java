@@ -43,16 +43,19 @@ class RuntimeBootstrapTest {
         RuntimeBootstrap bootstrap = RuntimeBootstrap.builder(
                         new RuntimeBootstrapFixturePlugin(),
                         "cn.mythicland.framework.runtime.fixture.RuntimeBootstrapErrorFixture"
-                )
+        )
                 .runtimeName("error fixture")
                 .libraries(
                         this.dataDirectory,
                         "runtime-bootstrap-test-libraries.properties",
                         Set.of("test")
                 )
-                .loggers(ignored -> {
-                }, ignored -> {
-                })
+                .loggers(
+                        ignored -> {
+                        },
+                        ignored -> {
+                        }
+                )
                 .childFirstPackages(List.of("cn.mythicland.framework.runtime.fixture."))
                 .parentFirstClasses(List.of(RuntimeBootstrapFixturePlugin.class.getName()))
                 .build();
@@ -71,9 +74,12 @@ class RuntimeBootstrapTest {
                         "runtime-bootstrap-test-libraries.properties",
                         Set.of("test")
                 )
-                .loggers(ignored -> {
-                }, ignored -> {
-                })
+                .loggers(
+                        ignored -> {
+                        },
+                        ignored -> {
+                        }
+                )
                 .childFirstPackages(List.of("cn.mythicland.framework.runtime.fixture."))
                 .parentFirstClasses(List.of(RuntimeBootstrapFixturePlugin.class.getName()))
                 .lifecycleMethods("prepare", "start", "refresh", "stop")

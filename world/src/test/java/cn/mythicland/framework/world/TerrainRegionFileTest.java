@@ -13,7 +13,8 @@ class TerrainRegionFileTest {
     @TempDir
     Path directory;
 
-    @Test void sanitize_removesOrdinaryEntitiesAndKeepsTerrainData() throws Exception {
+    @Test
+    void sanitize_removesOrdinaryEntitiesAndKeepsTerrainData() throws Exception {
         Path source = TerrainTestRegion.write(this.directory.resolve("source"), "saved", true);
         Path target = this.directory.resolve("sanitized/r.0.0.mca");
         TerrainRegionFile.sanitize(source, target);

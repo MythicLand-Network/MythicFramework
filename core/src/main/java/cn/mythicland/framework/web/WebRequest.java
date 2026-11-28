@@ -54,8 +54,9 @@ public final class WebRequest {
         Map<String, String> headers = new LinkedHashMap<>();
         Headers exchangeHeaders = exchange.getRequestHeaders();
         exchangeHeaders.forEach((name, values) -> {
-            if (!values.isEmpty()) headers.put(name.toLowerCase(Locale.ROOT), values.getFirst());
-        });
+                    if (!values.isEmpty()) headers.put(name.toLowerCase(Locale.ROOT), values.getFirst());
+                }
+        );
         return new WebRequest(exchange.getRequestMethod(), uri.getPath(), query, headers, body);
     }
 

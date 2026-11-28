@@ -71,7 +71,8 @@ public final class MaterialIconCatalog {
                 || name.endsWith("_DUST") || name.endsWith("_BUCKET") || name.endsWith("_SPAWN_EGG")
                 || List.of("APPLE", "BREAD", "CARROT", "POTATO", "STICK", "BOW", "ARROW", "BOOK",
                         "PAPER", "SHEARS", "FLINT", "COAL", "DIAMOND", "EMERALD", "GOLDEN_APPLE",
-                        "FISHING_ROD", "LEATHER", "STRING", "FEATHER", "EGG", "SNOWBALL", "SLIME_BALL")
+                        "FISHING_ROD", "LEATHER", "STRING", "FEATHER", "EGG", "SNOWBALL", "SLIME_BALL"
+                )
                 .contains(name);
     }
 }

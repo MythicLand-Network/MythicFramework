@@ -27,10 +27,13 @@ class ComponentCapabilitiesTest {
 
         assertInstanceOf(PrimaryService.class, container.resolve(Service.class));
         assertEquals(2, container.resolve(ServiceConsumer.class).services.values().size());
-        assertEquals("runtime", container.create(
-                RuntimeComponent.class,
-                ComponentArguments.of(new RuntimeInput("runtime"))
-        ).value);
+        assertEquals(
+                "runtime",
+                container.create(
+                        RuntimeComponent.class,
+                        ComponentArguments.of(new RuntimeInput("runtime"))
+                ).value
+        );
     }
 
     interface Service {

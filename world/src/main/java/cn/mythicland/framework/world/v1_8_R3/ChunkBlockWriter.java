@@ -11,11 +11,13 @@ import org.bukkit.World;
 import net.minecraft.server.v1_8_R3.TileEntity;
 import net.minecraft.server.v1_8_R3.NBTCompressedStreamTools;
 import cn.mythicland.framework.world.v1_8_R3.SchematicWorkQueue.BlockChange;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Base64;
+
 import org.bukkit.craftbukkit.v1_8_R3.CraftChunk;
 import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_8_R3.entity.CraftPlayer;
@@ -67,8 +69,15 @@ public final class ChunkBlockWriter {
 
     public static BlockChange decodeBlock(int x, int y, int z, int id, int data, String tile) {
         try {
-            return new BlockChange(x, y, z, id, data, tile.isEmpty() ? null
-                    : NBTCompressedStreamTools.a(new ByteArrayInputStream(Base64.getDecoder().decode(tile))));
+            return new BlockChange(
+                    x,
+                    y,
+                    z,
+                    id,
+                    data,
+                    tile.isEmpty() ? null
+                            : NBTCompressedStreamTools.a(new ByteArrayInputStream(Base64.getDecoder().decode(tile)))
+            );
         } catch (IOException exception) {
             throw new UncheckedIOException(exception);
         }
@@ -98,7 +107,9 @@ public final class ChunkBlockWriter {
     public void commit() {
         List<BlockPosition> removed = this.chunk.getTileEntities().keySet().stream()
                 .filter(position -> this.positions.get((position.getY() << 8)
-                        | ((position.getZ() & 15) << 4) | (position.getX() & 15)))
+                                | ((position.getZ() & 15) << 4) | (position.getX() & 15)
+                )
+                )
                 .toList();
         for (BlockPosition position : removed) this.chunk.world.t(position);
         ChunkSection[] sections = this.chunk.getSections().clone();
@@ -133,7 +144,8 @@ public final class ChunkBlockWriter {
         for (int position = this.tilePositions.nextSetBit(0);
              position >= 0; position = this.tilePositions.nextSetBit(position + 1)) {
             BlockPosition block = new BlockPosition((this.chunk.locX << 4) + (position & 15),
-                    position >> 8, (this.chunk.locZ << 4) + ((position >> 4) & 15));
+                    position >> 8, (this.chunk.locZ << 4) + ((position >> 4) & 15)
+            );
             if (this.chunk.getType(block).isTileEntity()) this.chunk.world.getTileEntity(block);
         }
     }
@@ -141,12 +153,15 @@ public final class ChunkBlockWriter {
     public void restoreTile(NBTTagCompound compound) {
         TileEntity tile = TileEntity.c(compound);
         if (tile == null) throw new IllegalArgumentException("Unsupported tile entity: " + compound.getString("id"));
-        this.chunk.world.setTileEntity(new BlockPosition(compound.getInt("x"), compound.getInt("y"), compound.getInt("z")), tile);
+        this.chunk.world.setTileEntity(
+                new BlockPosition(compound.getInt("x"), compound.getInt("y"), compound.getInt("z")), tile
+        );
     }
 
     public void refresh(Player player) {
         ((CraftPlayer) player).getHandle().playerConnection.sendPacket(
-                new PacketPlayOutMapChunk(this.chunk, false, this.sectionMask));
+                new PacketPlayOutMapChunk(this.chunk, false, this.sectionMask)
+        );
         for (TileEntity tile : this.chunk.getTileEntities().values()) {
             Packet<?> packet = tile.getUpdatePacket();
             if (packet != null) ((CraftPlayer) player).getHandle().playerConnection.sendPacket(packet);
@@ -163,7 +178,8 @@ public final class ChunkBlockWriter {
         Path folder = this.chunk.world.getWorld().getWorldFolder().toPath();
         requestSave();
         return ChunkSaveVerifier.verify(folder, this.chunk.locX, this.chunk.locZ,
-                this.saveSnapshot::get, (BitSet) this.positions.clone(), executor);
+                this.saveSnapshot::get, (BitSet) this.positions.clone(), executor
+        );
     }
 
     private ChunkSaveVerifier.Snapshot captureSave() {
@@ -176,7 +192,8 @@ public final class ChunkBlockWriter {
         Map<BlockPosition, NBTTagCompound> tiles = new HashMap<>();
         for (Map.Entry<BlockPosition, TileEntity> entry : this.chunk.getTileEntities().entrySet()) {
             BlockPosition position = entry.getKey();
-            if (!this.positions.get((position.getY() << 8) | ((position.getZ() & 15) << 4) | (position.getX() & 15))) continue;
+            if (!this.positions.get((position.getY() << 8) | ((position.getZ() & 15) << 4) | (position.getX() & 15)))
+                continue;
             NBTTagCompound tile = new NBTTagCompound();
             entry.getValue().b(tile);
             tiles.put(entry.getKey(), tile);

@@ -67,27 +67,36 @@ public final class PlayerLoadingGate implements Listener, AutoCloseable {
     }
 
     private static void applyEffects(Player player) {
-        player.addPotionEffect(new PotionEffect(
-                PotionEffectType.BLINDNESS,
-                EFFECT_DURATION_TICKS,
-                0,
-                false,
-                false
-        ), true);
-        player.addPotionEffect(new PotionEffect(
-                PotionEffectType.JUMP,
-                EFFECT_DURATION_TICKS,
-                JUMP_AMPLIFIER,
-                false,
-                false
-        ), true);
-        player.addPotionEffect(new PotionEffect(
-                PotionEffectType.SLOW,
-                EFFECT_DURATION_TICKS,
-                SLOW_AMPLIFIER,
-                false,
-                false
-        ), true);
+        player.addPotionEffect(
+                new PotionEffect(
+                        PotionEffectType.BLINDNESS,
+                        EFFECT_DURATION_TICKS,
+                        0,
+                        false,
+                        false
+                ),
+                true
+        );
+        player.addPotionEffect(
+                new PotionEffect(
+                        PotionEffectType.JUMP,
+                        EFFECT_DURATION_TICKS,
+                        JUMP_AMPLIFIER,
+                        false,
+                        false
+                ),
+                true
+        );
+        player.addPotionEffect(
+                new PotionEffect(
+                        PotionEffectType.SLOW,
+                        EFFECT_DURATION_TICKS,
+                        SLOW_AMPLIFIER,
+                        false,
+                        false
+                ),
+                true
+        );
     }
 
     private static void ensurePrimaryThread() {

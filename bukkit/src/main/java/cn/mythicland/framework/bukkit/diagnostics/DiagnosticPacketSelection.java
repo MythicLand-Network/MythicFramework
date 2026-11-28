@@ -35,14 +35,16 @@ final class DiagnosticPacketSelection {
         this.names = source.names;
         this.entityIds = source.entityIds;
         source.teams.forEach((viewer, teams) -> {
-            Map<String, Set<String>> copied = new ConcurrentHashMap<>();
-            teams.forEach((name, members) -> {
-                Set<String> entries = ConcurrentHashMap.newKeySet();
-                entries.addAll(members);
-                copied.put(name, entries);
-            });
-            this.teams.put(viewer, copied);
-        });
+                    Map<String, Set<String>> copied = new ConcurrentHashMap<>();
+                    teams.forEach((name, members) -> {
+                                Set<String> entries = ConcurrentHashMap.newKeySet();
+                                entries.addAll(members);
+                                copied.put(name, entries);
+                            }
+                    );
+                    this.teams.put(viewer, copied);
+                }
+        );
     }
 
     DiagnosticPacketSelection copy() {
@@ -88,31 +90,41 @@ final class DiagnosticPacketSelection {
                 Map<String, Object> out = new LinkedHashMap<>();
                 out.put("entityId", field(packet, "a"));
                 out.put("slot", field(packet, "b"));
-                out.put("item", DiagnosticSnapshot.item(
-                        (net.minecraft.server.v1_8_R3.ItemStack) field(packet, "c"),
-                        this.options.includes(DiagnosticOptions.Detail.NBT)
-                ));
+                out.put(
+                        "item",
+                        DiagnosticSnapshot.item(
+                                (net.minecraft.server.v1_8_R3.ItemStack) field(packet, "c"),
+                                this.options.includes(DiagnosticOptions.Detail.NBT)
+                        )
+                );
                 yield out;
             }
             case "PacketPlayOutEntityDestroy" -> Map.of("entityIds", this.destroyed(packet));
             case "PacketPlayOutScoreboardScore" -> Map.of(
                     "entry", field(packet, "a"), "objective", field(packet, "b"),
-                    "score", field(packet, "c"), "action", field(packet, "d").toString());
+                    "score", field(packet, "c"), "action", field(packet, "d").toString()
+            );
             case "PacketPlayOutScoreboardObjective" -> Map.of(
                     "objective", field(packet, "a"), "displayName", field(packet, "b"),
-                    "renderType", String.valueOf(field(packet, "c")), "mode", field(packet, "d"));
+                    "renderType", String.valueOf(field(packet, "c")), "mode", field(packet, "d")
+            );
             case "PacketPlayOutScoreboardDisplayObjective" -> Map.of(
-                    "slot", field(packet, "a"), "objective", field(packet, "b"));
+                    "slot", field(packet, "a"), "objective", field(packet, "b")
+            );
             case "PacketPlayOutPlayerInfo" -> Map.of(
-                    "action", field(packet, "a").toString(),
-                    "players", this.profiles(packet).stream().map(entry -> {
-                        Map<String, Object> out = new LinkedHashMap<>();
-                        out.put("uuid", entry.a().getId().toString());
-                        out.put("name", entry.a().getName());
-                        out.put("ping", entry.b());
-                        out.put("gameMode", String.valueOf(entry.c()));
-                        return out;
-                    }).toList());
+                    "action",
+                    field(packet, "a").toString(),
+                    "players",
+                    this.profiles(packet).stream().map(entry -> {
+                                Map<String, Object> out = new LinkedHashMap<>();
+                                out.put("uuid", entry.a().getId().toString());
+                                out.put("name", entry.a().getName());
+                                out.put("ping", entry.b());
+                                out.put("gameMode", String.valueOf(entry.c()));
+                                return out;
+                            }
+                    ).toList()
+            );
             case "PacketPlayOutScoreboardTeam" -> {
                 Map<String, Object> out = new LinkedHashMap<>();
                 out.put("team", field(packet, "a"));
@@ -144,7 +156,8 @@ final class DiagnosticPacketSelection {
         if (mode == 0 || mode == 1) known.remove(name);
         if (mode == 0 || mode == 3) {
             for (String entry : this.entries(packet)) {
-                if (this.names.contains(entry)) known.computeIfAbsent(name, ignored -> ConcurrentHashMap.newKeySet()).add(entry);
+                if (this.names.contains(entry))
+                    known.computeIfAbsent(name, ignored -> ConcurrentHashMap.newKeySet()).add(entry);
             }
         } else if (mode == 4) {
             Set<String> members = known.get(name);

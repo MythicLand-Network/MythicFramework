@@ -30,17 +30,24 @@ import java.util.concurrent.RejectedExecutionException;
 
 final class DiagnosticPackets implements AutoCloseable {
     private static final PacketType[] TYPES = {
-            PacketType.Play.Client.USE_ENTITY, PacketType.Play.Client.ARM_ANIMATION, PacketType.Play.Client.HELD_ITEM_SLOT,
+            PacketType.Play.Client.USE_ENTITY, PacketType.Play.Client.ARM_ANIMATION,
+            PacketType.Play.Client.HELD_ITEM_SLOT,
             PacketType.Play.Client.BLOCK_DIG, PacketType.Play.Client.BLOCK_PLACE, PacketType.Play.Client.ENTITY_ACTION,
             PacketType.Play.Client.POSITION, PacketType.Play.Client.POSITION_LOOK, PacketType.Play.Client.LOOK,
             PacketType.Play.Client.FLYING, PacketType.Play.Client.KEEP_ALIVE, PacketType.Play.Client.TRANSACTION,
-            PacketType.Play.Server.ENTITY_VELOCITY, PacketType.Play.Server.ENTITY_STATUS, PacketType.Play.Server.ANIMATION,
+            PacketType.Play.Server.ENTITY_VELOCITY, PacketType.Play.Server.ENTITY_STATUS,
+            PacketType.Play.Server.ANIMATION,
             PacketType.Play.Server.POSITION, PacketType.Play.Server.EXPLOSION, PacketType.Play.Server.ENTITY_TELEPORT,
-            PacketType.Play.Server.REL_ENTITY_MOVE, PacketType.Play.Server.REL_ENTITY_MOVE_LOOK, PacketType.Play.Server.ENTITY_LOOK,
-            PacketType.Play.Server.ENTITY_HEAD_ROTATION, PacketType.Play.Server.ENTITY_METADATA, PacketType.Play.Server.UPDATE_ATTRIBUTES,
-            PacketType.Play.Server.ENTITY_EFFECT, PacketType.Play.Server.REMOVE_ENTITY_EFFECT, PacketType.Play.Server.HELD_ITEM_SLOT,
-            PacketType.Play.Server.ENTITY_EQUIPMENT, PacketType.Play.Server.KEEP_ALIVE, PacketType.Play.Server.TRANSACTION,
-            PacketType.Play.Server.NAMED_ENTITY_SPAWN, PacketType.Play.Server.ENTITY_DESTROY, PacketType.Play.Server.RESPAWN,
+            PacketType.Play.Server.REL_ENTITY_MOVE, PacketType.Play.Server.REL_ENTITY_MOVE_LOOK,
+            PacketType.Play.Server.ENTITY_LOOK,
+            PacketType.Play.Server.ENTITY_HEAD_ROTATION, PacketType.Play.Server.ENTITY_METADATA,
+            PacketType.Play.Server.UPDATE_ATTRIBUTES,
+            PacketType.Play.Server.ENTITY_EFFECT, PacketType.Play.Server.REMOVE_ENTITY_EFFECT,
+            PacketType.Play.Server.HELD_ITEM_SLOT,
+            PacketType.Play.Server.ENTITY_EQUIPMENT, PacketType.Play.Server.KEEP_ALIVE,
+            PacketType.Play.Server.TRANSACTION,
+            PacketType.Play.Server.NAMED_ENTITY_SPAWN, PacketType.Play.Server.ENTITY_DESTROY,
+            PacketType.Play.Server.RESPAWN,
             PacketType.Play.Server.SCOREBOARD_SCORE, PacketType.Play.Server.SCOREBOARD_OBJECTIVE,
             PacketType.Play.Server.SCOREBOARD_DISPLAY_OBJECTIVE, PacketType.Play.Server.SCOREBOARD_TEAM,
             PacketType.Play.Server.UPDATE_HEALTH, PacketType.Play.Server.PLAYER_INFO
@@ -74,8 +81,11 @@ final class DiagnosticPackets implements AutoCloseable {
         this.selection = new DiagnosticPacketSelection(options, targets);
         if (!options.includes(DiagnosticOptions.Detail.PROTOCOL)) return;
         try {
-            for (ListenerPriority priority : new ListenerPriority[]{ListenerPriority.LOWEST, ListenerPriority.MONITOR}) {
-                PacketAdapter listener = new PacketAdapter(PacketAdapter.params(plugin, TYPES).listenerPriority(priority).optionAsync()) {
+            for (ListenerPriority priority : new ListenerPriority[]{ListenerPriority.LOWEST,
+                    ListenerPriority.MONITOR}) {
+                PacketAdapter listener = new PacketAdapter(
+                        PacketAdapter.params(plugin, TYPES).listenerPriority(priority).optionAsync()
+                ) {
                     @Override
                     public void onPacketReceiving(PacketEvent event) {
                         capture(event, "receive", priority);
@@ -97,7 +107,9 @@ final class DiagnosticPackets implements AutoCloseable {
     }
 
     void connect(Player player) {
-        if (this.closed || (!this.targets.contains(player.getUniqueId()) && !this.observers.contains(player.getUniqueId()))) return;
+        if (this.closed ||
+                (!this.targets.contains(player.getUniqueId()) && !this.observers.contains(player.getUniqueId())))
+            return;
         if (this.targets.contains(player.getUniqueId())) this.selection.track(player);
         Channel channel = ((CraftPlayer) player).getHandle().playerConnection.networkManager.channel;
         if (!channel.isActive()) return;
@@ -108,71 +120,99 @@ final class DiagnosticPackets implements AutoCloseable {
         this.installedChannels.add(channel);
         UUID uuid = player.getUniqueId();
         channel.eventLoop().execute(() -> {
-            if (this.closed || !this.recorder.isRecording() || !channel.isActive()) return;
-            try {
-                var pipeline = channel.pipeline();
-                String frameBoundary = pipeline.get("decompress") == null ? "splitter" : "decompress";
-                if (pipeline.get(frameBoundary) == null || pipeline.get("decoder") == null || pipeline.get("packet_handler") == null) {
-                    throw new IllegalStateException("Unsupported diagnostic pipeline: " + pipeline.names());
-                }
-                if (options.includes(DiagnosticOptions.Detail.FRAMES) && DiagnosticPackets.this.targets.contains(uuid))
-                    pipeline.addAfter(frameBoundary, this.prefix + "-frame", new DiagnosticFrames(this.recorder, uuid, this.frame, options));
-                if (options.includes(DiagnosticOptions.Detail.PROTOCOL)) pipeline.addAfter("decoder", this.prefix + "-decoded", new ChannelInboundHandlerAdapter() {
-                    @Override
-                    public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
-                        decoded(uuid, channel, message, "decoded.packet");
-                        context.fireChannelRead(message);
-                    }
-                });
-                DiagnosticWire wire = observers.contains(uuid) ? new DiagnosticWire(recorder, uuid, channel.toString(), selection, options) : null;
-                if (wire != null) wire.position(pipeline, this.prefix + "-wire");
-                pipeline.addBefore("packet_handler", this.prefix + "-dispatch", new ChannelDuplexHandler() {
-                    @Override
-                    public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
-                        decoded(uuid, channel, message, "dispatch.packet");
-                        context.fireChannelRead(message);
-                    }
-
-                    @Override
-                    public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) throws Exception {
-                        if (!closed && recorder.isRecording()) {
-                            try {
-                                if (wire != null) wire.position(context.pipeline(), prefix + "-wire");
-                                if (observers.contains(uuid) && selection.relevant(uuid, message, true)) {
-                                    long id = ids.id(message);
-                                    long transmission = recorder.nextId();
-                                    Map<String, Object> fields = base(uuid, channel);
-                                    fields.put("packetId", id);
-                                    fields.put("transmissionId", transmission);
-                                    fields.put("type", message.getClass().getName());
-                                    fields.put("payload", selection.snapshot(message));
-                                    recorder.record("outbound.write", fields);
-                                    selection.sent(uuid, message);
-                                    promise.addListener(result -> {
-                                        Map<String, Object> complete = base(uuid, channel);
-                                        complete.put("packetId", id);
-                                        complete.put("transmissionId", transmission);
-                                        complete.put("success", result.isSuccess());
-                                        complete.put("error", result.cause() == null ? null : result.cause().toString());
-                                        recorder.record("outbound.complete", complete);
-                                    });
-                                }
-                            } catch (RuntimeException failure) {
-                                recorder.fail("outbound.write", failure);
-                            }
+                    if (this.closed || !this.recorder.isRecording() || !channel.isActive()) return;
+                    try {
+                        var pipeline = channel.pipeline();
+                        String frameBoundary = pipeline.get("decompress") == null ? "splitter" : "decompress";
+                        if (pipeline.get(frameBoundary) == null || pipeline.get("decoder") == null ||
+                                pipeline.get("packet_handler") == null) {
+                            throw new IllegalStateException("Unsupported diagnostic pipeline: " + pipeline.names());
                         }
-                        context.write(message, promise);
+                        if (options.includes(DiagnosticOptions.Detail.FRAMES) && DiagnosticPackets.this.targets.contains(uuid))
+                            pipeline.addAfter(frameBoundary, this.prefix + "-frame",
+                                    new DiagnosticFrames(this.recorder, uuid, this.frame, options)
+                            );
+                        if (options.includes(DiagnosticOptions.Detail.PROTOCOL))
+                            pipeline.addAfter(
+                                    "decoder",
+                                    this.prefix + "-decoded",
+                                    new ChannelInboundHandlerAdapter() {
+                                        @Override
+                                        public void channelRead(ChannelHandlerContext context, Object message)
+                                                throws Exception {
+                                            decoded(uuid, channel, message, "decoded.packet");
+                                            context.fireChannelRead(message);
+                                        }
+                                    }
+                            );
+                        DiagnosticWire wire = observers.contains(uuid) ?
+                                new DiagnosticWire(recorder, uuid, channel.toString(), selection, options) : null;
+                        if (wire != null) wire.position(pipeline, this.prefix + "-wire");
+                        pipeline.addBefore(
+                                "packet_handler",
+                                this.prefix + "-dispatch",
+                                new ChannelDuplexHandler() {
+                                    @Override
+                                    public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
+                                        decoded(uuid, channel, message, "dispatch.packet");
+                                        context.fireChannelRead(message);
+                                    }
+
+                                    @Override
+                                    public void write(ChannelHandlerContext context, Object message, ChannelPromise promise)
+                                            throws Exception {
+                                        if (!closed && recorder.isRecording()) {
+                                            try {
+                                                if (wire != null) wire.position(context.pipeline(), prefix + "-wire");
+                                                if (observers.contains(uuid) && selection.relevant(uuid, message, true)) {
+                                                    long id = ids.id(message);
+                                                    long transmission = recorder.nextId();
+                                                    Map<String, Object> fields = base(uuid, channel);
+                                                    fields.put("packetId", id);
+                                                    fields.put("transmissionId", transmission);
+                                                    fields.put("type", message.getClass().getName());
+                                                    fields.put("payload", selection.snapshot(message));
+                                                    recorder.record("outbound.write", fields);
+                                                    selection.sent(uuid, message);
+                                                    promise.addListener(result -> {
+                                                                Map<String, Object> complete = base(uuid, channel);
+                                                                complete.put("packetId", id);
+                                                                complete.put("transmissionId", transmission);
+                                                                complete.put("success", result.isSuccess());
+                                                                complete.put("error",
+                                                                        result.cause() == null ? null : result.cause().toString()
+                                                                );
+                                                                recorder.record("outbound.complete", complete);
+                                                            }
+                                                    );
+                                                }
+                                            } catch (RuntimeException failure) {
+                                                recorder.fail("outbound.write", failure);
+                                            }
+                                        }
+                                        context.write(message, promise);
+                                    }
+                                }
+                        );
+                        this.recorder.record(
+                                "pipeline.installed",
+                                Map.of("player", uuid.toString(), "connection", channel.toString(),
+                                        "names", List.copyOf(pipeline.names()), "frameBoundary", frameBoundary
+                                )
+                        );
+                    } catch (RuntimeException failure) {
+                        this.recorder.fail("pipeline.install", failure);
                     }
-                });
-                this.recorder.record("pipeline.installed", Map.of("player", uuid.toString(), "connection", channel.toString(),
-                        "names", List.copyOf(pipeline.names()), "frameBoundary", frameBoundary));
-            } catch (RuntimeException failure) {
-                this.recorder.fail("pipeline.install", failure);
-            }
-        });
+                }
+        );
     }
 
-    private void decoded(UUID uuid, Channel channel, Object message, String stage) {
+    private void decoded(
+            UUID uuid,
+            Channel channel,
+            Object message,
+            String stage
+    ) {
         if (this.closed || !this.recorder.isRecording()) return;
         try {
             if (!this.selection.relevant(uuid, message, false)) return;

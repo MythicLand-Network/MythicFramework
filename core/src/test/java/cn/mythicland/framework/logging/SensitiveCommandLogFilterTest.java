@@ -15,12 +15,23 @@ class SensitiveCommandLogFilterTest {
     @Test
     void suppressesOnlySensitiveCommandExecutionRecords() {
         String logger = "command-handler";
-        try (SensitiveCommandLogFilter ignored = new SensitiveCommandLogFilter(LogManager.class.getClassLoader(), logger, Set.of("premium"))) {
-            Filter filter = ((LoggerContext) LogManager.getContext(false)).getConfiguration().getLoggerConfig(logger).getFilter();
-            assertEquals(Filter.Result.DENY, filter.filter(event(logger, "Player -> executed command /premium secret")));
-            assertEquals(Filter.Result.DENY, filter.filter(event(logger, "Player -> executed command /mythiclogin:premium secret")));
-            assertEquals(Filter.Result.NEUTRAL, filter.filter(event(logger, "Player -> executed command /premiuminfo")));
-            assertEquals(Filter.Result.NEUTRAL, filter.filter(event(logger, "Player -> executed command /server lobby")));
+        try (SensitiveCommandLogFilter ignored = new SensitiveCommandLogFilter(LogManager.class.getClassLoader(),
+                logger, Set.of("premium")
+        )) {
+            Filter filter = ((LoggerContext) LogManager.getContext(false)).getConfiguration().getLoggerConfig(logger)
+                    .getFilter();
+            assertEquals(Filter.Result.DENY,
+                    filter.filter(event(logger, "Player -> executed command /premium secret"))
+            );
+            assertEquals(Filter.Result.DENY,
+                    filter.filter(event(logger, "Player -> executed command /mythiclogin:premium secret"))
+            );
+            assertEquals(Filter.Result.NEUTRAL,
+                    filter.filter(event(logger, "Player -> executed command /premiuminfo"))
+            );
+            assertEquals(Filter.Result.NEUTRAL,
+                    filter.filter(event(logger, "Player -> executed command /server lobby"))
+            );
         }
     }
 

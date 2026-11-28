@@ -48,11 +48,12 @@ public final class MultipartParser {
                 throw new WebException(400, "INVALID_MULTIPART", "Multipart 字段名缺失");
             }
             parts.add(new Part(
-                    name,
-                    fileName(disposition),
-                    headers.getOrDefault("content-type", "application/octet-stream"),
-                    content
-            ));
+                            name,
+                            fileName(disposition),
+                            headers.getOrDefault("content-type", "application/octet-stream"),
+                            content
+            )
+            );
             position = nextBoundary + 2;
         }
         return new MultipartData(parts);
@@ -79,7 +80,8 @@ public final class MultipartParser {
             int separator = line.indexOf(':');
             if (separator <= 0) throw new WebException(400, "INVALID_MULTIPART", "Multipart 请求头无效");
             headers.put(line.substring(0, separator).trim().toLowerCase(Locale.ROOT),
-                    line.substring(separator + 1).trim());
+                    line.substring(separator + 1).trim()
+            );
         }
         return headers;
     }
@@ -182,7 +184,12 @@ public final class MultipartParser {
      * @param contentType part content type
      * @param content     content bytes
      */
-    public record Part(String name, String fileName, String contentType, byte[] content) {
+    public record Part(
+            String name,
+            String fileName,
+            String contentType,
+            byte[] content
+    ) {
         public Part {
             Objects.requireNonNull(name, "name");
             Objects.requireNonNull(contentType, "contentType");

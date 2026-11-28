@@ -50,8 +50,9 @@ public final class Cooldowns<K> {
     public Map<K, Long> remaining(Predicate<K> predicate, long nowMillis) {
         Map<K, Long> remaining = new HashMap<>();
         this.cooldownUntilMillis.forEach((key, expiresAt) -> {
-            if (predicate.test(key) && expiresAt > nowMillis) remaining.put(key, expiresAt - nowMillis);
-        });
+                    if (predicate.test(key) && expiresAt > nowMillis) remaining.put(key, expiresAt - nowMillis);
+                }
+        );
         return remaining;
     }
 }

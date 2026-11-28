@@ -106,12 +106,13 @@ public final class RuntimeBootstrap {
         List<URL> urls = new ArrayList<>();
         urls.add(this.pluginJarUrl(pluginType));
         urls.addAll(new RuntimeLibraryLoader(
-                this.configuration.dataDirectory(),
-                pluginType.getClassLoader(),
-                this.configuration.manifestResource(),
-                this.configuration.infoLogger(),
-                this.configuration.warningLogger()
-        ).resolveLibraries(this.configuration.activePlatforms()));
+                        this.configuration.dataDirectory(),
+                        pluginType.getClassLoader(),
+                        this.configuration.manifestResource(),
+                        this.configuration.infoLogger(),
+                        this.configuration.warningLogger()
+        ).resolveLibraries(this.configuration.activePlatforms())
+        );
         this.classLoader = new SelectiveChildFirstClassLoader(
                 urls.toArray(URL[]::new),
                 pluginType.getClassLoader(),
@@ -255,7 +256,8 @@ public final class RuntimeBootstrap {
                     this.enableMethod,
                     this.reloadMethod,
                     this.unloadMethod
-            ));
+            )
+            );
         }
     }
 

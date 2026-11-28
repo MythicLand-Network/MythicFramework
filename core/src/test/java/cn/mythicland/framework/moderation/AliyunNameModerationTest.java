@@ -30,18 +30,21 @@ class AliyunNameModerationTest {
     @BeforeEach
     void startServer() throws Exception {
         this.server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        this.server.createContext("/", exchange -> {
-            try (exchange) {
-                this.requests.incrementAndGet();
-                String form = exchange.getRequestURI().getRawQuery() + "&"
-                        + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                this.submittedForm.set(URLDecoder.decode(form, StandardCharsets.UTF_8));
-                byte[] bytes = this.response.get().getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, bytes.length);
-                exchange.getResponseBody().write(bytes);
-            }
-        });
+        this.server.createContext(
+                "/",
+                exchange -> {
+                    try (exchange) {
+                        this.requests.incrementAndGet();
+                        String form = exchange.getRequestURI().getRawQuery() + "&"
+                                + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                        this.submittedForm.set(URLDecoder.decode(form, StandardCharsets.UTF_8));
+                        byte[] bytes = this.response.get().getBytes(StandardCharsets.UTF_8);
+                        exchange.getResponseHeaders().set("Content-Type", "application/json");
+                        exchange.sendResponseHeaders(200, bytes.length);
+                        exchange.getResponseBody().write(bytes);
+                    }
+                }
+        );
         this.server.start();
         var config = new Config()
                 .setAccessKeyId("local-test-id")
@@ -98,15 +101,24 @@ class AliyunNameModerationTest {
 
     @Test
     void sharedTextTransportPreservesConfidenceAndNicknamePolicy() {
-        this.response.set("{\"Code\":200,\"RequestId\":\"local-id\",\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"political_n\",\"Confidence\":96.5,\"RiskWords\":\"text\"}]}}");
-        var text = new AliyunTextModeration(this.client, ignored -> {}, Runnable::run);
+        this.response.set(
+                "{\"Code\":200,\"RequestId\":\"local-id\",\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"political_n\",\"Confidence\":96.5,\"RiskWords\":\"text\"}]}}"
+        );
+        var text = new AliyunTextModeration(
+                this.client,
+                ignored -> {
+                },
+                Runnable::run
+        );
         var result = text.check("comment_detection_pro", "第一句\n第二句").join();
         assertTrue(result.available());
         assertEquals(96.5, result.detections().getFirst().confidence());
         assertEquals("local-id", result.requestId());
         assertTrue(this.submittedForm.get().contains("comment_detection_pro"));
         var names = new AliyunNameModeration(this.client, Logger.getAnonymousLogger(), Runnable::run);
-        this.response.set("{\"Code\":200,\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"customized\"},{}]}}");
+        this.response.set(
+                "{\"Code\":200,\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"customized\"},{}]}}"
+        );
         assertEquals(REJECT, names.check("Tester").join());
         this.response.set("{\"Code\":200,\"Data\":{\"RiskLevel\":\"none\",\"Result\":[{}]}}");
         assertEquals(ALLOW, names.check("Tester").join());

@@ -27,7 +27,12 @@ class PluginTaskScopeTest {
         PluginTaskScope scope = new PluginTaskScope(plugin);
         Runnable action = mock(Runnable.class);
         scope.runLater(1L, action);
-        scope.runTimer(1L, 2L, () -> {});
+        scope.runTimer(
+                1L,
+                2L,
+                () -> {
+                }
+        );
         ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
         verify(scheduler).runTaskLater(eq(plugin), callback.capture(), eq(1L));
         callback.getValue().run();

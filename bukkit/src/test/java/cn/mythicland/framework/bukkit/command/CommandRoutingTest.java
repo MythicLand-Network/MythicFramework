@@ -58,11 +58,12 @@ class CommandRoutingTest {
         BukkitCommandBridge router = router(new NestedCommand(received));
 
         assertTrue(router.onCommand(
-                sender(),
-                null,
-                "nested",
-                new String[]{"cmd", "add", "player", "say", "hello"}
-        ));
+                        sender(),
+                        null,
+                        "nested",
+                        new String[]{"cmd", "add", "player", "say", "hello"}
+        )
+        );
         assertEquals(List.of("player", "say", "hello"), received);
         assertEquals(
                 List.of("player", "console"),
@@ -76,19 +77,21 @@ class CommandRoutingTest {
         BukkitCommandBridge router = router(command);
 
         assertTrue(router.onCommand(
-                sender(new ArrayList<>(), permission -> permission.equals("first")),
-                null,
-                "dynamic",
-                new String[0]
-        ));
+                        sender(new ArrayList<>(), permission -> permission.equals("first")),
+                        null,
+                        "dynamic",
+                        new String[0]
+        )
+        );
         command.permission = "second";
         List<String> messages = new ArrayList<>();
         assertTrue(router.onCommand(
-                sender(messages, permission -> permission.equals("first")),
-                null,
-                "dynamic",
-                new String[0]
-        ));
+                        sender(messages, permission -> permission.equals("first")),
+                        null,
+                        "dynamic",
+                        new String[0]
+        )
+        );
         assertTrue(messages.stream().anyMatch(message -> message.contains("没有执行此命令的权限")));
     }
 
@@ -147,7 +150,8 @@ class CommandRoutingTest {
         router.onCommand(sender(messages, permission -> false), null, "ex", new String[]{"help"});
         assertEquals(List.of("§4> §c/ex npc"), messages);
         assertEquals(List.of("combat", "items", "npc"),
-                router.onTabComplete(admin, null, "ex", new String[]{"help", ""}));
+                router.onTabComplete(admin, null, "ex", new String[]{"help", ""})
+        );
         assertEquals(List.of("edit"), router.onTabComplete(admin, null, "ex", new String[]{"help", "items", ""}));
         assertEquals(List.of("legacy-id"), router.onTabComplete(admin, null, "ex", new String[]{"npc", "lega"}));
     }
@@ -183,7 +187,8 @@ class CommandRoutingTest {
     void multilineUsagePrefixesEveryCommandLine() {
         String usage = VanillaCommandMessages.usage("/worldregion landmark set <id> <显示名>\n"
                 + "/worldregion landmark delete <id>\n"
-                + "/worldregion landmark list");
+                + "/worldregion landmark list"
+        );
 
         assertEquals(
                 ChatColor.DARK_RED + "> " + ChatColor.RED + "/worldregion landmark set <id> <显示名>\n"
@@ -223,9 +228,14 @@ class CommandRoutingTest {
 
     @CommandBinding("choice")
     private static final class SuggestedCommand {
-        @CommandRoute(path = {"choice"}, usages = "/choice <value>", minArguments = 1, maxArguments = 1,
-                arguments = @CommandArgument(index = 0, source = SuggestionSource.STATIC_VALUES, values = {"alpha",
-                        "beta"}))
+        @CommandRoute(
+                path = {"choice"}, usages = "/choice <value>", minArguments = 1, maxArguments = 1,
+                arguments = @CommandArgument(
+                        index = 0,
+                        source = SuggestionSource.STATIC_VALUES,
+                        values = {"alpha", "beta"}
+                )
+        )
         private void choose(CommandContext context) {
         }
     }
@@ -324,13 +334,17 @@ class CommandRoutingTest {
         private void home(CommandContext context) {
         }
 
-        @CommandRoute(path = {"example", "items",
-                "reload"}, maxArguments = Integer.MAX_VALUE, helpGroup = "items", permission = "example.admin")
+        @CommandRoute(
+                path = {"example", "items",
+                        "reload"}, maxArguments = Integer.MAX_VALUE, helpGroup = "items", permission = "example.admin"
+        )
         private void reload(CommandContext context) {
         }
 
-        @CommandRoute(path = {"example", "items",
-                "edit"}, maxArguments = Integer.MAX_VALUE, helpGroup = "items", permission = "example.admin")
+        @CommandRoute(
+                path = {"example", "items",
+                        "edit"}, maxArguments = Integer.MAX_VALUE, helpGroup = "items", permission = "example.admin"
+        )
         private void edit(CommandContext context) {
         }
 
@@ -352,8 +366,13 @@ class CommandRoutingTest {
             context.requireArguments(0);
         }
 
-        @CommandRoute(path = {"example", "items",
-                "edit"}, maxArguments = Integer.MAX_VALUE, permission = "admin", usages = "/example items edit <id>")
+        @CommandRoute(
+                path = {"example", "items",
+                        "edit"},
+                maxArguments = Integer.MAX_VALUE,
+                permission = "admin",
+                usages = "/example items edit <id>"
+        )
         private void edit(CommandContext context) {
             context.requireArguments(1);
         }

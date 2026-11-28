@@ -58,13 +58,14 @@ public final class KeyedLoadingCache<K, V> {
         try {
             CompletableFuture<V> started = taskSupplier.get();
             started.whenComplete((result, throwable) -> {
-                this.loadingTasks.remove(key, loadingTask);
-                if (throwable != null) {
-                    placeholder.completeExceptionally(throwable);
-                    return;
-                }
-                placeholder.complete(result);
-            });
+                        this.loadingTasks.remove(key, loadingTask);
+                        if (throwable != null) {
+                            placeholder.completeExceptionally(throwable);
+                            return;
+                        }
+                        placeholder.complete(result);
+                    }
+            );
         } catch (RuntimeException exception) {
             this.loadingTasks.remove(key, loadingTask);
             placeholder.completeExceptionally(exception);

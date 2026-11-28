@@ -27,7 +27,12 @@ final class RuntimeArtifacts {
         }
     }
 
-    static void download(URI source, Path target, String expectedHash, String userAgent) throws IOException {
+    static void download(
+            URI source,
+            Path target,
+            String expectedHash,
+            String userAgent
+    ) throws IOException {
         Path temporary = target.resolveSibling(target.getFileName() + ".tmp");
         Files.deleteIfExists(temporary);
         try {

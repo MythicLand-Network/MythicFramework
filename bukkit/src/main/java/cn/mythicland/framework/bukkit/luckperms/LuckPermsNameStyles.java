@@ -21,11 +21,19 @@ public final class LuckPermsNameStyles {
         this.luckPerms = luckPerms;
     }
 
-    public PlayerNameStyle resolve(Player player, String group, Supplier<PlayerNameStyle> memberStyle) {
+    public PlayerNameStyle resolve(
+            Player player,
+            String group,
+            Supplier<PlayerNameStyle> memberStyle
+    ) {
         return this.resolve(player, List.of("group." + group), memberStyle);
     }
 
-    public PlayerNameStyle resolve(Player player, List<String> permissions, Supplier<PlayerNameStyle> memberStyle) {
+    public PlayerNameStyle resolve(
+            Player player,
+            List<String> permissions,
+            Supplier<PlayerNameStyle> memberStyle
+    ) {
         User user = this.luckPerms.getPlayerAdapter(Player.class).getUser(player);
         QueryOptions options = this.luckPerms.getContextManager().getQueryOptions(player);
         return this.permissionStyle(user, options, permissions).orElseGet(memberStyle);
@@ -50,7 +58,8 @@ public final class LuckPermsNameStyles {
         return loaded.thenCompose(user ->
                 this.permissionStyle(user, user.getQueryOptions(), permissions)
                         .map(CompletableFuture::completedFuture)
-                        .orElseGet(memberStyle));
+                        .orElseGet(memberStyle)
+        );
     }
 
     public Optional<PlayerNameStyle> groupStyle(User user, QueryOptions options, String group) {

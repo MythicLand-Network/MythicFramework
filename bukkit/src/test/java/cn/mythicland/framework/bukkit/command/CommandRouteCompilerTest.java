@@ -42,8 +42,10 @@ final class CommandRouteCompilerTest {
     private static final class DynamicCommand extends AbstractCommand {
         private String permission = "first";
 
-        @CommandRoute(path = {"world", "teleport"}, usages = "/world teleport", aliases = "tp",
-                permissionMethod = "permission")
+        @CommandRoute(
+                path = {"world", "teleport"}, usages = "/world teleport", aliases = "tp",
+                permissionMethod = "permission"
+        )
         private void teleport(CommandContext context) {
         }
 

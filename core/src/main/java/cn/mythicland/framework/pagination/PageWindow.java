@@ -8,7 +8,12 @@ package cn.mythicland.framework.pagination;
  * @param pageSize        maximum entries per page
  * @param totalEntryCount total entries before paging
  */
-public record PageWindow(int page, int pageCount, int pageSize, int totalEntryCount) {
+public record PageWindow(
+        int page,
+        int pageCount,
+        int pageSize,
+        int totalEntryCount
+) {
 
     /**
      * Validates the page window.

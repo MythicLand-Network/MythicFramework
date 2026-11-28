@@ -62,9 +62,10 @@ public class PluginTaskScope implements AutoCloseable {
      */
     public CompletableFuture<Void> runOnMain(Runnable action) {
         return supplyOnMain(() -> {
-            action.run();
-            return null;
-        });
+                    action.run();
+                    return null;
+                }
+        );
     }
 
     /**

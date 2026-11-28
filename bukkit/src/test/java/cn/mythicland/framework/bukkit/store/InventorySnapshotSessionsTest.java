@@ -30,13 +30,14 @@ class InventorySnapshotSessionsTest {
     void rejectsForeignThreadsAndUseAfterClose() {
         InventorySnapshotSessions<Object> sessions = new InventoryItemSerializer().snapshotSessions();
         Throwable failure = CompletableFuture.supplyAsync(() -> {
-            try {
-                sessions.serialize(new Object(), new ItemStack[0]);
-                return null;
-            } catch (IllegalStateException exception) {
-                return exception;
-            }
-        }).join();
+                    try {
+                        sessions.serialize(new Object(), new ItemStack[0]);
+                        return null;
+                    } catch (IllegalStateException exception) {
+                        return exception;
+                    }
+                }
+        ).join();
         assertInstanceOf(IllegalStateException.class, failure);
         sessions.close();
         sessions.close();

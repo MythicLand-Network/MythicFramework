@@ -2,7 +2,9 @@ package cn.mythicland.framework.bukkit;
 
 import org.bukkit.Bukkit;
 
-/** Validates operations that must run on Bukkit's primary thread. */
+/**
+ * Validates operations that must run on Bukkit's primary thread.
+ */
 public final class MainThread {
     private MainThread() {
     }

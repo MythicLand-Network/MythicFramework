@@ -46,7 +46,8 @@ class CooldownsTest {
         cooldowns.start("bob:attack", 0, 1000);
         cooldowns.start(null, 100, 1000);
         assertEquals(java.util.Map.of("alice:attack", 50L, "alice:heal", 50L),
-                cooldowns.remaining(key -> key.startsWith("alice:"), 1050));
+                cooldowns.remaining(key -> key.startsWith("alice:"), 1050)
+        );
         cooldowns.clear(key -> key.startsWith("alice:"));
 
         assertEquals(1, cooldowns.size());

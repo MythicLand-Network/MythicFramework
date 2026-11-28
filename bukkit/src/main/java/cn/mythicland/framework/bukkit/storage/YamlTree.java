@@ -24,9 +24,10 @@ public final class YamlTree {
         Objects.requireNonNull(source, "source");
         Map<String, Object> copy = new LinkedHashMap<>();
         source.forEach((key, value) -> {
-            if (key == null) throw new IllegalArgumentException("YAML keys cannot be null");
-            copy.put(String.valueOf(key), immutable(value));
-        });
+                    if (key == null) throw new IllegalArgumentException("YAML keys cannot be null");
+                    copy.put(String.valueOf(key), immutable(value));
+                }
+        );
         return Collections.unmodifiableMap(copy);
     }
 

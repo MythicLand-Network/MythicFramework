@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.jupiter.api.Test;
 
 class KeyedLoadingCacheTest {
@@ -52,10 +53,13 @@ class KeyedLoadingCacheTest {
         );
 
         assertEquals("first", first.join());
-        assertEquals("second", cache.getOrStartLoading(
-                "player",
-                () -> CompletableFuture.completedFuture("second")
-        ).join());
+        assertEquals(
+                "second",
+                cache.getOrStartLoading(
+                        "player",
+                        () -> CompletableFuture.completedFuture("second")
+                ).join()
+        );
     }
 
     @Test
@@ -71,10 +75,13 @@ class KeyedLoadingCacheTest {
         CompletionException exception = assertThrows(CompletionException.class, failed::join);
         assertSame(failure, exception.getCause());
         assertFalse(cache.isLoading("player"));
-        assertEquals("recovered", cache.getOrStartLoading(
-                "player",
-                () -> CompletableFuture.completedFuture("recovered")
-        ).join());
+        assertEquals(
+                "recovered",
+                cache.getOrStartLoading(
+                        "player",
+                        () -> CompletableFuture.completedFuture("recovered")
+                ).join()
+        );
     }
 
     @Test

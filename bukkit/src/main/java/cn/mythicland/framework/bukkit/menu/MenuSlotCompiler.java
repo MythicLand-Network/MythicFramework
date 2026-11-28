@@ -101,7 +101,8 @@ public final class MenuSlotCompiler {
         if (!AbstractButton.class.isAssignableFrom(method.getReturnType())
                 && !isOptionalButtonReturn(method.getGenericReturnType(), method.getReturnType())) {
             throw invalid(menuType, method, slot,
-                    "method must return AbstractButton or Optional<? extends AbstractButton>");
+                    "method must return AbstractButton or Optional<? extends AbstractButton>"
+            );
         }
         Method previous = methodsBySlot.get(slot);
         if (previous != null) {
@@ -133,7 +134,12 @@ public final class MenuSlotCompiler {
         return false;
     }
 
-    private static IllegalStateException invalid(Class<?> menuType, Method method, int slot, String reason) {
+    private static IllegalStateException invalid(
+            Class<?> menuType,
+            Method method,
+            int slot,
+            String reason
+    ) {
         return new IllegalStateException(
                 "Invalid @MenuSlot in " + menuType.getName() + "#" + method.getName()
                         + " at slot " + slot + ": " + reason

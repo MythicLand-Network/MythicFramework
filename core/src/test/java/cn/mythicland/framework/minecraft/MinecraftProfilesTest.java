@@ -26,13 +26,19 @@ class MinecraftProfilesTest {
     void reusesSuccessfulLookupIgnoringCaseAndRefreshesAfterOneMinute() throws Exception {
         AtomicInteger requests = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/", exchange -> {
-            requests.incrementAndGet();
-            byte[] bytes = "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, bytes.length);
-            exchange.getResponseBody().write(bytes);
-            exchange.close();
-        });
+        server.createContext(
+                "/",
+                exchange -> {
+                    requests.incrementAndGet();
+                    byte[] bytes =
+                            "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}".getBytes(
+                                    StandardCharsets.UTF_8
+                            );
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                }
+        );
         server.start();
         try {
             Clock clock = mock(Clock.class);
@@ -59,23 +65,30 @@ class MinecraftProfilesTest {
         CountDownLatch received = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/", exchange -> {
-            requests.incrementAndGet();
-            received.countDown();
-            try {
-                release.await(2, TimeUnit.SECONDS);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            }
-            byte[] bytes = "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(status.get(), bytes.length);
-            exchange.getResponseBody().write(bytes);
-            exchange.close();
-        });
+        server.createContext(
+                "/",
+                exchange -> {
+                    requests.incrementAndGet();
+                    received.countDown();
+                    try {
+                        release.await(2, TimeUnit.SECONDS);
+                    } catch (InterruptedException exception) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] bytes =
+                            "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}".getBytes(
+                                    StandardCharsets.UTF_8
+                            );
+                    exchange.sendResponseHeaders(status.get(), bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                }
+        );
         server.start();
         try {
             MinecraftProfiles profiles = new MinecraftProfiles(HttpClient.newHttpClient(),
-                    URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/"));
+                    URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/")
+            );
             CompletableFuture<?> first = CompletableFuture.supplyAsync(() -> profiles.findByName("Notch"));
             assertTrue(received.await(2, TimeUnit.SECONDS));
             release.countDown();
@@ -94,25 +107,31 @@ class MinecraftProfilesTest {
     @Test
     void distinguishesMissingNamesFromServiceFailureAndValidatesIdentity() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/", exchange -> {
-            String name = exchange.getRequestURI().getPath().substring(1);
-            int status = switch (name) {
-                case "Missing" -> 404;
-                case "Unavailable" -> 429;
-                default -> 200;
-            };
-            String body = name.equals("Malformed") ? "{}"
-                    : "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}";
-            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(status, bytes.length);
-            exchange.getResponseBody().write(bytes);
-            exchange.close();
-        });
+        server.createContext(
+                "/",
+                exchange -> {
+                    String name = exchange.getRequestURI().getPath().substring(1);
+                    int status = switch (name) {
+                        case "Missing" -> 404;
+                        case "Unavailable" -> 429;
+                        default -> 200;
+                    };
+                    String body = name.equals("Malformed") ? "{}"
+                            : "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}";
+                    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(status, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                    exchange.close();
+                }
+        );
         server.start();
         try {
             MinecraftProfiles profiles = new MinecraftProfiles(HttpClient.newHttpClient(),
-                    URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/"));
-            assertEquals(UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"), profiles.findByName("Notch").orElseThrow().uuid());
+                    URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/")
+            );
+            assertEquals(UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"),
+                    profiles.findByName("Notch").orElseThrow().uuid()
+            );
             assertTrue(profiles.findByName("Missing").isEmpty());
             assertThrows(IllegalStateException.class, () -> profiles.findByName("Unavailable"));
             assertThrows(RuntimeException.class, () -> profiles.findByName("Malformed"));
@@ -127,18 +146,22 @@ class MinecraftProfilesTest {
         AtomicInteger fallbackRequests = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/mojang/", exchange -> respond(exchange, 429, ""));
-        server.createContext("/fallback/", exchange -> {
-            fallbackRequests.incrementAndGet();
-            String body = exchange.getRequestURI().getPath().endsWith("/Notch")
-                    ? "{\"exists\":true,\"uuid\":\"069a79f4-44e9-4726-a5be-fca90e38aaf5\"}"
-                    : "{\"exists\":false,\"uuid\":null}";
-            respond(exchange, 200, body);
-        });
+        server.createContext(
+                "/fallback/",
+                exchange -> {
+                    fallbackRequests.incrementAndGet();
+                    String body = exchange.getRequestURI().getPath().endsWith("/Notch")
+                            ? "{\"exists\":true,\"uuid\":\"069a79f4-44e9-4726-a5be-fca90e38aaf5\"}"
+                            : "{\"exists\":false,\"uuid\":null}";
+                    respond(exchange, 200, body);
+                }
+        );
         server.start();
         try {
             MinecraftProfiles profiles = profilesWithFallback(server);
             assertEquals(UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"),
-                    profiles.findByName("Notch").orElseThrow().uuid());
+                    profiles.findByName("Notch").orElseThrow().uuid()
+            );
             assertTrue(profiles.findByName("MagooCat").isEmpty());
             assertTrue(profiles.findByName("notch").isPresent());
             assertEquals(2, fallbackRequests.get());
@@ -151,14 +174,20 @@ class MinecraftProfilesTest {
     void successfulMissingAndInvalidMojangResponsesDoNotQueryFallback() throws Exception {
         AtomicInteger fallbackRequests = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/mojang/", exchange -> {
-            int status = exchange.getRequestURI().getPath().endsWith("/Missing") ? 404 : 200;
-            respond(exchange, status, "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}");
-        });
-        server.createContext("/fallback/", exchange -> {
-            fallbackRequests.incrementAndGet();
-            respond(exchange, 200, "{\"exists\":false,\"uuid\":null}");
-        });
+        server.createContext(
+                "/mojang/",
+                exchange -> {
+                    int status = exchange.getRequestURI().getPath().endsWith("/Missing") ? 404 : 200;
+                    respond(exchange, status, "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}");
+                }
+        );
+        server.createContext(
+                "/fallback/",
+                exchange -> {
+                    fallbackRequests.incrementAndGet();
+                    respond(exchange, 200, "{\"exists\":false,\"uuid\":null}");
+                }
+        );
         server.start();
         try {
             MinecraftProfiles profiles = profilesWithFallback(server);
@@ -200,7 +229,8 @@ class MinecraftProfilesTest {
             }
             body.set("{\"exists\":true,\"uuid\":\"069a79f4-44e9-4726-a5be-fca90e38aaf5\"}");
             assertEquals(UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"),
-                    profiles.findByName("Notch").orElseThrow().uuid());
+                    profiles.findByName("Notch").orElseThrow().uuid()
+            );
         } finally {
             server.stop(0);
         }

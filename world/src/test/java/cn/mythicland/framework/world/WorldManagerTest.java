@@ -33,7 +33,8 @@ class WorldManagerTest {
     @TempDir
     Path directory;
 
-    @Test void disabledManager_doesNotAccessTheServerOrCreateStorage() throws Exception {
+    @Test
+    void disabledManager_doesNotAccessTheServerOrCreateStorage() throws Exception {
         JavaPlugin plugin = mock(JavaPlugin.class);
         Path storage = this.directory.resolve("worlds");
         try (WorldManager manager = new WorldManager(plugin, storage, false)) {
@@ -45,7 +46,8 @@ class WorldManagerTest {
         assertFalse(Files.exists(storage));
     }
 
-    @Test void prepare_restoresSavedTerrainBeforeWorldLoading() throws Exception {
+    @Test
+    void prepare_restoresSavedTerrainBeforeWorldLoading() throws Exception {
         Path storage = this.directory.resolve("storage");
         TerrainSnapshotStore store = new TerrainSnapshotStore(storage);
         Path sourceRegion = this.directory.resolve("source/region");
@@ -70,7 +72,8 @@ class WorldManagerTest {
         assertFalse(level.hasKey("Entities"));
     }
 
-    @Test void enabledManager_requiresASavedWorld() {
+    @Test
+    void enabledManager_requiresASavedWorld() {
         Path storage = this.directory.resolve("storage");
         JavaPlugin plugin = mock(JavaPlugin.class);
         Server server = mock(Server.class);
@@ -81,7 +84,8 @@ class WorldManagerTest {
         }
     }
 
-    @Test void save_preservesEditedTerrainWhenAnOlderChunkWriteIsInProgress() throws Exception {
+    @Test
+    void save_preservesEditedTerrainWhenAnOlderChunkWriteIsInProgress() throws Exception {
         Path worldDirectory = this.directory.resolve("world");
         Path regionDirectory = worldDirectory.resolve("region");
         Path region = TerrainTestRegion.write(regionDirectory, "before-edit", false);
@@ -105,17 +109,19 @@ class WorldManagerTest {
         when(world.getWorldFolder()).thenReturn(worldDirectory.toFile());
         when(world.getEnvironment()).thenReturn(World.Environment.NORMAL);
         doAnswer(invocation -> {
-            enqueue.invoke(loader, position, editedChunk);
-            return null;
-        }).when(world).save();
+                    enqueue.invoke(loader, position, editedChunk);
+                    return null;
+                }
+        ).when(world).save();
 
         FileIOThread writer = mock(FileIOThread.class);
         doAnswer(invocation -> {
-            writing.remove(position);
-            while (loader.c()) {
-            }
-            return null;
-        }).when(writer).b();
+                    writing.remove(position);
+                    while (loader.c()) {
+                    }
+                    return null;
+                }
+        ).when(writer).b();
         Path storage = this.directory.resolve("storage");
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
              MockedStatic<FileIOThread> fileIO = mockStatic(FileIOThread.class);

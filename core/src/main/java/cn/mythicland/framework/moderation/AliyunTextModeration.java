@@ -57,15 +57,18 @@ final class AliyunTextModeration implements TextModeration {
         var result = new CompletableFuture<Result>().completeOnTimeout(Result.unavailable(), 7, TimeUnit.SECONDS);
         try {
             this.executor.execute(() -> {
-                try {
-                    if (!result.isDone()) result.complete(this.request(service, content));
-                } catch (Exception exception) {
-                    this.warningLogger.accept("Text moderation request failed: " + exception.getClass().getSimpleName());
-                    result.complete(Result.unavailable());
-                } finally {
-                    this.requests.release();
-                }
-            });
+                        try {
+                            if (!result.isDone()) result.complete(this.request(service, content));
+                        } catch (Exception exception) {
+                            this.warningLogger.accept(
+                                    "Text moderation request failed: " + exception.getClass().getSimpleName()
+                            );
+                            result.complete(Result.unavailable());
+                        } finally {
+                            this.requests.release();
+                        }
+                    }
+            );
         } catch (RuntimeException exception) {
             this.requests.release();
             this.warningLogger.accept("Could not schedule text moderation: " + exception.getClass().getSimpleName());
@@ -83,7 +86,8 @@ final class AliyunTextModeration implements TextModeration {
                 new RuntimeOptions().setAutoretry(false).setMaxAttempts(1)
         );
         var body = response.getBody();
-        if (!Integer.valueOf(200).equals(response.getStatusCode()) || body == null || !Integer.valueOf(200).equals(body.getCode())) {
+        if (!Integer.valueOf(200).equals(response.getStatusCode()) || body == null ||
+                !Integer.valueOf(200).equals(body.getCode())) {
             String failure = "Text moderation failed with HTTP " + response.getStatusCode();
             if (body != null) failure += ", code " + body.getCode() + ", request " + body.getRequestId();
             this.warningLogger.accept(failure);

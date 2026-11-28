@@ -24,9 +24,11 @@ class YamlConfigTest {
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getDataFolder()).thenReturn(this.directory.toFile());
         when(plugin.getResource("menus.yml")).thenAnswer(ignored -> new ByteArrayInputStream(
-                "menus:\n  custom:\n    title: default\n    items:\n      example: bundled\n  game:\n    title: bundled\n".getBytes(
-                        StandardCharsets.UTF_8)
-        ));
+                        "menus:\n  custom:\n    title: default\n    items:\n      example: bundled\n  game:\n    title: bundled\n".getBytes(
+                                StandardCharsets.UTF_8
+                        )
+        )
+        );
         YamlConfig config = new YamlConfig(plugin, "menus.yml");
         config.load();
         assertEquals("saved", config.data().getString("menus.custom.title"));

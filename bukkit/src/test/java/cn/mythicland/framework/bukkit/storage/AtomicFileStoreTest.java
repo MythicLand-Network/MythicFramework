@@ -39,9 +39,13 @@ class AtomicFileStoreTest {
     void writesYamlTreesAtomically(@TempDir Path directory) throws Exception {
         Path target = directory.resolve("items.yml");
 
-        AtomicYamlStore.write(target, java.util.Map.of(
-                "STONE", java.util.Map.of("Id", "STONE", "Attributes", java.util.List.of("generic.attackDamage"))
-        ));
+        AtomicYamlStore.write(
+                target,
+                java.util.Map.of(
+                        "STONE",
+                        java.util.Map.of("Id", "STONE", "Attributes", java.util.List.of("generic.attackDamage"))
+                )
+        );
 
         YamlConfiguration configuration = YamlConfiguration.loadConfiguration(target.toFile());
         assertEquals("STONE", configuration.getString("STONE.Id"));

@@ -271,7 +271,12 @@ class PathLoadBalancerTest {
         private final int updateInterval;
         private long tick;
 
-        private Simulation(List<PathLoadBalancer.Point> route, int population, boolean uniform, int updateInterval) {
+        private Simulation(
+                List<PathLoadBalancer.Point> route,
+                int population,
+                boolean uniform,
+                int updateInterval
+        ) {
             this.route = route;
             this.balancing = new PathLoadBalancer(route);
             this.phases = new double[population];

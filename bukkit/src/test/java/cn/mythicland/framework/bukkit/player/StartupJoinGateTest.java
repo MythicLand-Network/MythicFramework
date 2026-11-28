@@ -38,7 +38,8 @@ class StartupJoinGateTest {
 
     @Test
     void failedOrCancelledStartupNeverAdmitsPlayers() {
-        CompletableFuture<Void> failed = CompletableFuture.failedFuture(new IllegalStateException("World restore failed"));
+        CompletableFuture<Void> failed =
+                CompletableFuture.failedFuture(new IllegalStateException("World restore failed"));
         CompletableFuture<Void> cancelled = new CompletableFuture<>();
         cancelled.cancel(false);
         for (CompletableFuture<Void> ready : List.of(failed, cancelled)) {

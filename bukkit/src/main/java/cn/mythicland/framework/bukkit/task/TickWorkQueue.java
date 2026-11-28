@@ -42,13 +42,14 @@ public final class TickWorkQueue implements Executor, AutoCloseable {
         CompletableFuture<T> result = this.newCompletion();
         try {
             this.execute(() -> {
-                if (result.isDone()) return;
-                try {
-                    result.complete(work.get());
-                } catch (Exception exception) {
-                    result.completeExceptionally(exception);
-                }
-            });
+                        if (result.isDone()) return;
+                        try {
+                            result.complete(work.get());
+                        } catch (Exception exception) {
+                            result.completeExceptionally(exception);
+                        }
+                    }
+            );
         } catch (RuntimeException exception) {
             result.completeExceptionally(exception);
             throw exception;
@@ -100,9 +101,12 @@ public final class TickWorkQueue implements Executor, AutoCloseable {
         try {
             work.run();
         } catch (RuntimeException exception) {
-            this.enqueue(() -> {
-                throw exception;
-            }, lowPriority);
+            this.enqueue(
+                    () -> {
+                        throw exception;
+                    },
+                    lowPriority
+            );
         }
     }
 
@@ -170,10 +174,11 @@ public final class TickWorkQueue implements Executor, AutoCloseable {
             this.completions.add(completion);
         }
         completion.whenComplete((result, failure) -> {
-            synchronized (this.pending) {
-                this.completions.remove(completion);
-            }
-        });
+                    synchronized (this.pending) {
+                        this.completions.remove(completion);
+                    }
+                }
+        );
         return completion;
     }
 

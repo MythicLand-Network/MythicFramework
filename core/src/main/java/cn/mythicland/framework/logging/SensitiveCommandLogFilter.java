@@ -20,12 +20,15 @@ public final class SensitiveCommandLogFilter implements AutoCloseable {
             Set<String> commands
     ) {
         String alternatives = commands.stream().map(Pattern::quote).collect(Collectors.joining("|"));
-        Pattern sensitive = Pattern.compile("(?i).* -> executed command /(?:[^\\s:]+:)?(?:" + alternatives + ")(?:\\s.*)?");
-        loggerConfiguration = ((LoggerContext) LogManager.getContext(loggingClassLoader, false)).getConfiguration().getLoggerConfig(loggerName);
+        Pattern sensitive =
+                Pattern.compile("(?i).* -> executed command /(?:[^\\s:]+:)?(?:" + alternatives + ")(?:\\s.*)?");
+        loggerConfiguration = ((LoggerContext) LogManager.getContext(loggingClassLoader, false)).getConfiguration()
+                .getLoggerConfig(loggerName);
         filter = new AbstractFilter() {
             @Override
             public Result filter(LogEvent event) {
-                return loggerName.equals(event.getLoggerName()) && sensitive.matcher(event.getMessage().getFormattedMessage()).matches()
+                return loggerName.equals(event.getLoggerName()) &&
+                        sensitive.matcher(event.getMessage().getFormattedMessage()).matches()
                         ? Result.DENY : Result.NEUTRAL;
             }
         };

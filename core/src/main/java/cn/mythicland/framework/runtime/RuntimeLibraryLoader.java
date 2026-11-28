@@ -94,12 +94,13 @@ public final class RuntimeLibraryLoader {
         for (int index = 0; index < count; index++) {
             String prefix = "library." + index + ".";
             libraries.add(new RuntimeLibrary(
-                    required(properties, prefix + "coordinate"),
-                    required(properties, prefix + "fileName"),
-                    split(required(properties, prefix + "downloadUrls")),
-                    required(properties, prefix + "sha256"),
-                    Set.copyOf(split(required(properties, prefix + "platform")))
-            ));
+                            required(properties, prefix + "coordinate"),
+                            required(properties, prefix + "fileName"),
+                            split(required(properties, prefix + "downloadUrls")),
+                            required(properties, prefix + "sha256"),
+                            Set.copyOf(split(required(properties, prefix + "platform")))
+            )
+            );
         }
         return List.copyOf(libraries);
     }
@@ -120,7 +121,8 @@ public final class RuntimeLibraryLoader {
         for (String downloadUrl : library.downloadUrls()) {
             try {
                 RuntimeArtifacts.download(URI.create(downloadUrl), target, library.sha256(),
-                        "MythicFramework-LibraryLoader");
+                        "MythicFramework-LibraryLoader"
+                );
                 return;
             } catch (IOException exception) {
                 lastFailure = exception;

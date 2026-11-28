@@ -98,17 +98,19 @@ public final class DamageModifierSupport {
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(reductions, "reductions");
         reductions.forEach((modifier, rule) -> {
-            Objects.requireNonNull(rule, "rule");
-            if (modifier == DamageModifier.BASE || !event.isApplicable(modifier)) {
-                throw new IllegalArgumentException("Damage modifier is not replaceable: " + modifier);
-            }
-        });
+                    Objects.requireNonNull(rule, "rule");
+                    if (modifier == DamageModifier.BASE || !event.isApplicable(modifier)) {
+                        throw new IllegalArgumentException("Damage modifier is not replaceable: " + modifier);
+                    }
+                }
+        );
         try {
             Map<DamageModifier, Function<Double, Double>> original =
                     (Map<DamageModifier, Function<Double, Double>>) FUNCTIONS.get(event);
             Map<DamageModifier, Function<Double, Double>> functions = new EnumMap<>(original);
             reductions.forEach((modifier, rule) ->
-                    functions.put(modifier, incoming -> rule.applyAsDouble(incoming) - incoming));
+                    functions.put(modifier, incoming -> rule.applyAsDouble(incoming) - incoming)
+            );
             Map<DamageModifier, Double> values = new EnumMap<>(DamageModifier.class);
             double previous = event.getDamage();
             double current = previous;

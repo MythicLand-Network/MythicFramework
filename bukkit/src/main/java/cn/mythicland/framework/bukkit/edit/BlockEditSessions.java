@@ -12,6 +12,7 @@ import java.util.IdentityHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Item;
@@ -43,7 +44,8 @@ public final class BlockEditSessions implements Listener, AutoCloseable {
     public static Location lowerRightCorner(Location block, float yaw) {
         int facing = Math.floorMod((int) Math.floor((yaw + 45) / 90), 4);
         return new Location(block.getWorld(), block.getBlockX() + (facing == 1 || facing == 2 ? 1 : 0),
-                block.getBlockY(), block.getBlockZ() + (facing == 2 || facing == 3 ? 1 : 0));
+                block.getBlockY(), block.getBlockZ() + (facing == 2 || facing == 3 ? 1 : 0)
+        );
     }
 
     public TemporaryItemMarkers markers() {
@@ -74,7 +76,8 @@ public final class BlockEditSessions implements Listener, AutoCloseable {
             boolean clearOnWorldChange,
             Runnable cleanup
     ) {
-        if (this.owners.get(player) != owner) throw new IllegalStateException("Block edit session is not owned by caller");
+        if (this.owners.get(player) != owner)
+            throw new IllegalStateException("Block edit session is not owned by caller");
         this.routes.put(player, new Route(allowed, select, undo, clearOnWorldChange, cleanup));
     }
 
@@ -176,7 +179,12 @@ public final class BlockEditSessions implements Listener, AutoCloseable {
             return values;
         }
 
-        public void put(Object key, T value, Location position, Material material) {
+        public void put(
+                Object key,
+                T value,
+                Location position,
+                Material material
+        ) {
             remove(key);
             this.points.put(key, new Entry<>(value, this.markers.add(position, material)));
         }

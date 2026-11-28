@@ -24,7 +24,11 @@ public final class LegacyMeleeAttack {
      * Finds the nearest living entity intersecting the crosshair within reach and before any block.
      * A rejected entity blocks entities behind it. Call on the server thread; returns null on a miss.
      */
-    public static LivingEntity target(Player player, double reach, Predicate<LivingEntity> allowed) {
+    public static LivingEntity target(
+            Player player,
+            double reach,
+            Predicate<LivingEntity> allowed
+    ) {
         MainThread.require("Melee targeting requires the server thread");
         if (!Double.isFinite(reach) || reach <= 0)
             throw new IllegalArgumentException("Reach must be finite and positive");
@@ -43,7 +47,8 @@ public final class LegacyMeleeAttack {
             if (block != null) nearestDistance = distanceSquared(start, block);
             LivingEntity nearest = null;
             for (Entity entity : player.getNearbyEntities(reach, reach, reach)) {
-                if (!(entity instanceof LivingEntity living) || living == player || living.isDead() || !living.isValid())
+                if (!(entity instanceof LivingEntity living) || living == player || living.isDead() ||
+                        !living.isValid())
                     continue;
                 Object handle = Access.ENTITY_HANDLE.invoke(living);
                 Object box = Access.BOX.invoke(handle);
@@ -120,7 +125,8 @@ public final class LegacyMeleeAttack {
                 Class<?> box = Class.forName(nms + "AxisAlignedBB");
                 Class<?> entity = Class.forName(nms + "Entity");
                 VECTOR = vector.getConstructor(double.class, double.class, double.class);
-                ENTITY_HANDLE = Class.forName("org.bukkit.craftbukkit.v1_12_R1.entity.CraftLivingEntity").getMethod("getHandle");
+                ENTITY_HANDLE = Class.forName("org.bukkit.craftbukkit.v1_12_R1.entity.CraftLivingEntity")
+                        .getMethod("getHandle");
                 WORLD_HANDLE = Class.forName("org.bukkit.craftbukkit.v1_12_R1.CraftWorld").getMethod("getHandle");
                 BLOCK_TRACE = Class.forName(nms + "World").getMethod(
                         "rayTrace", vector, vector, boolean.class, boolean.class, boolean.class

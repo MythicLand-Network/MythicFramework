@@ -17,7 +17,8 @@ final class DiagnosticCoreBridge implements AutoCloseable {
     private Method currentPacket;
     private Method currentDamage;
 
-    DiagnosticCoreBridge(DiagnosticRecorder recorder, DiagnosticIds ids, Set<UUID> watched) throws ReflectiveOperationException {
+    DiagnosticCoreBridge(DiagnosticRecorder recorder, DiagnosticIds ids, Set<UUID> watched)
+            throws ReflectiveOperationException {
         this.sink = fields -> {
             if (recorder.isRecording()) recorder.record("core.trace", fields);
         };

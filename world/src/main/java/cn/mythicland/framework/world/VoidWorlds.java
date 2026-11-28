@@ -10,7 +10,8 @@ import org.bukkit.event.world.WorldInitEvent;
 import org.bukkit.plugin.Plugin;
 
 public final class VoidWorlds {
-    private VoidWorlds() {}
+    private VoidWorlds() {
+    }
 
     public static World create(Plugin plugin, String name) {
         Listener initialization = new Listener() {
@@ -28,6 +29,6 @@ public final class VoidWorlds {
             if (world == null) throw new IllegalStateException("Void world was not created: " + name);
             world.setKeepSpawnInMemory(false);
             return world;
-        } finally { HandlerList.unregisterAll(initialization); }
+        } finally {HandlerList.unregisterAll(initialization);}
     }
 }

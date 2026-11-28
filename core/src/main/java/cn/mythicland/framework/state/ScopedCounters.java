@@ -29,7 +29,12 @@ public final class ScopedCounters<O, K> {
                 .put(new CounterKey<>(key, counterpart), count);
     }
 
-    public boolean consume(O owner, K key, O counterpart, int requiredCount) {
+    public boolean consume(
+            O owner,
+            K key,
+            O counterpart,
+            int requiredCount
+    ) {
         if (requiredCount <= 0) throw new IllegalArgumentException("requiredCount must be positive: " + requiredCount);
         var owned = this.counters.get(owner);
         if (owned == null) return false;

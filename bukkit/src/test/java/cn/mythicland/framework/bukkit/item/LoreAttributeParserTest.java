@@ -24,10 +24,11 @@ class LoreAttributeParserTest {
     @Test
     void parsesPercentageAndIgnoresDisplayOnlyLines() {
         List<LoreAttributeLine> attributes = LoreAttributeParser.parse(List.of(
-                "§7装备描述",
-                "&c暴击几率: &e+30%",
-                "§f背景故事"
-        ));
+                        "§7装备描述",
+                        "&c暴击几率: &e+30%",
+                        "§f背景故事"
+        )
+        );
 
         assertEquals(1, attributes.size());
         assertEquals("暴击几率", attributes.getFirst().label());
@@ -49,6 +50,7 @@ class LoreAttributeParserTest {
         assertEquals("防御", result.label().orElseThrow());
         assertTrue(result.error().orElseThrow().contains("number")
                 || result.error().orElseThrow().contains("数字")
-                || result.error().orElseThrow().contains("number"));
+                || result.error().orElseThrow().contains("number")
+        );
     }
 }

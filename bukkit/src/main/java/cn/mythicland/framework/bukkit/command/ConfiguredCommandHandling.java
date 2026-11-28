@@ -41,8 +41,12 @@ final class ConfiguredCommandHandling {
         CommandNode selected = null;
         for (CommandNode node : match.visited()) if (node.canExecute()) selected = node;
         if (selected == null) {
-            if (spec.treeHelp()) treeHelp(sender, label, Arrays.stream(arguments, 0, match.consumed())
-                    .map(value -> value.toLowerCase(Locale.ROOT)).toList());
+            if (spec.treeHelp()) treeHelp(
+                    sender,
+                    label,
+                    Arrays.stream(arguments, 0, match.consumed())
+                            .map(value -> value.toLowerCase(Locale.ROOT)).toList()
+            );
             else if (root.canExecute() && root.child(arguments[0]) == null)
                 executeNode(sender, root, List.copyOf(Arrays.asList(arguments)), label, arguments);
             else {
@@ -52,7 +56,8 @@ final class ConfiguredCommandHandling {
             return true;
         }
         executeNode(sender, selected, List.copyOf(Arrays.asList(arguments).subList(match.consumed(), arguments.length)),
-                label, arguments);
+                label, arguments
+        );
         return true;
     }
 
@@ -87,7 +92,8 @@ final class ConfiguredCommandHandling {
             if (spec.treeHelp() && names.isEmpty() && node.canExecute() && allowed(sender, node)
                     && consumed == arguments.length - 1 && !token.isEmpty())
                 return completeNode(sender, node,
-                        List.copyOf(Arrays.asList(arguments).subList(consumed, arguments.length)), label);
+                        List.copyOf(Arrays.asList(arguments).subList(consumed, arguments.length)), label
+                );
             if (!node.children().isEmpty() && (!names.isEmpty() || consumed == arguments.length - 1)) {
                 if (consumed == 0 && "help".startsWith(token)) names.add("help");
                 return List.copyOf(names);
@@ -95,7 +101,8 @@ final class ConfiguredCommandHandling {
         }
         if (consumed < arguments.length && node.canExecute() && allowed(sender, node))
             return completeNode(sender, node, List.copyOf(Arrays.asList(arguments).subList(consumed, arguments.length)),
-                    label);
+                    label
+            );
         if (consumed == arguments.length && !node.children().isEmpty())
             return node.children().stream().filter(child -> accessible(sender, child))
                     .map(child -> child.name().toLowerCase(Locale.ROOT)).toList();
@@ -103,8 +110,13 @@ final class ConfiguredCommandHandling {
         return List.of();
     }
 
-    private void executeNode(CommandSender sender, CommandNode node, List<String> arguments, String label,
-            String[] raw) {
+    private void executeNode(
+            CommandSender sender,
+            CommandNode node,
+            List<String> arguments,
+            String label,
+            String[] raw
+    ) {
         if (!allowed(sender, node)) {
             sender.sendMessage(VanillaCommandMessages.red("你没有执行此命令的权限。"));
             return;
@@ -122,7 +134,12 @@ final class ConfiguredCommandHandling {
         }
     }
 
-    private List<String> completeNode(CommandSender sender, CommandNode node, List<String> arguments, String label) {
+    private List<String> completeNode(
+            CommandSender sender,
+            CommandNode node,
+            List<String> arguments,
+            String label
+    ) {
         try {
             CommandContext context = new CommandContext(sender, spec.rootName(), label, usage(node), arguments);
             List<String> values;
@@ -216,7 +233,8 @@ final class ConfiguredCommandHandling {
                     .distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
         } else {
             lines = visible.stream().filter(node -> node.commandPath().equals(selected) ||
-                            node.commandPath().startsWith(selected + " "))
+                            node.commandPath().startsWith(selected + " ")
+            )
                     .map(node -> usageForLabel(usage(node), label)).distinct().sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();
         }
@@ -232,10 +250,12 @@ final class ConfiguredCommandHandling {
         if (arguments.length == 1) {
             sender.sendMessage(VanillaCommandMessages.green("/" + label + " 帮助分类:"));
             spec.helpGroups().forEach((key, description) -> {
-                if (!commandsForGroup(sender, key).isEmpty())
-                    sender.sendMessage(
-                            VanillaCommandMessages.usage("/" + label + " help " + key + " - " + description));
-            });
+                        if (!commandsForGroup(sender, key).isEmpty())
+                            sender.sendMessage(
+                                    VanillaCommandMessages.usage("/" + label + " help " + key + " - " + description)
+                            );
+                    }
+            );
             return;
         }
         if (arguments.length != 2) {

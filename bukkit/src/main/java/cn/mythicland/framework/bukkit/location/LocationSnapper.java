@@ -60,7 +60,8 @@ public final class LocationSnapper {
     public static Location snapBlockCenter(Location location) {
         requireWorld(location);
         return new Location(location.getWorld(), Math.floor(location.getX()) + 0.5D, location.getY(),
-                Math.floor(location.getZ()) + 0.5D, location.getYaw(), location.getPitch());
+                Math.floor(location.getZ()) + 0.5D, location.getYaw(), location.getPitch()
+        );
     }
 
     public static Location snapBlockAndHorizontalView(Location location) {
@@ -68,7 +69,8 @@ public final class LocationSnapper {
         if (!Float.isFinite(location.getPitch())) throw new IllegalArgumentException("pitch must be finite");
         return new Location(location.getWorld(), snapHorizontalCoordinate(location.getX()),
                 snapStandingHeight(location.getY()), snapHorizontalCoordinate(location.getZ()),
-                snapYaw(location.getYaw()), 0.0F);
+                snapYaw(location.getYaw()), 0.0F
+        );
     }
 
     private static void requireWorld(Location location) {

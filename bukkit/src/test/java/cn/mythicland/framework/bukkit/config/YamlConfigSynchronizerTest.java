@@ -82,8 +82,9 @@ public class YamlConfigSynchronizerTest {
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getDataFolder()).thenReturn(this.folder.toFile());
         when(plugin.getResource("test.yml")).thenAnswer(call -> new ByteArrayInputStream(
-                "speed: 1.0\ninterval: 10\ncustom: {}\n".getBytes(StandardCharsets.UTF_8)
-        ));
+                        "speed: 1.0\ninterval: 10\ncustom: {}\n".getBytes(StandardCharsets.UTF_8)
+        )
+        );
         return plugin;
     }
 

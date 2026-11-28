@@ -210,7 +210,12 @@ public final class CommandNode {
             return this;
         }
 
-        public Builder help(String path, String group, String description, boolean visible) {
+        public Builder help(
+                String path,
+                String group,
+                String description,
+                boolean visible
+        ) {
             this.commandPath = path;
             this.helpGroup = group;
             this.description = description;

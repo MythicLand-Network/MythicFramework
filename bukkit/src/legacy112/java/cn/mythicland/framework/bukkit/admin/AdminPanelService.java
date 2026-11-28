@@ -194,10 +194,13 @@ public final class AdminPanelService implements Listener, AutoCloseable {
         if (!(event.getPlayer() instanceof Player player)) return;
         java.util.UUID viewer = player.getUniqueId();
         if (!animationsByViewer.containsKey(viewer)) return;
-        owner.getServer().getScheduler().runTask(owner, () -> {
-            if (closed || menus.hasOpenMenu(viewer)) return;
-            closeAnimation(viewer);
-        });
+        owner.getServer().getScheduler().runTask(
+                owner,
+                () -> {
+                    if (closed || menus.hasOpenMenu(viewer)) return;
+                    closeAnimation(viewer);
+                }
+        );
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

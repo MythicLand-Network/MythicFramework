@@ -11,7 +11,12 @@ import java.util.Objects;
  * @param data         the legacy durability or data value
  * @param displayName  the localized display name
  */
-public record MaterialEntry(String materialName, int legacyId, int data, String displayName) {
+public record MaterialEntry(
+        String materialName,
+        int legacyId,
+        int data,
+        String displayName
+) {
 
     /**
      * Creates a validated material entry.

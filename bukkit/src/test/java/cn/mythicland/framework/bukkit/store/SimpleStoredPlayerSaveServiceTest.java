@@ -24,9 +24,15 @@ class SimpleStoredPlayerSaveServiceTest {
     private final StoredPlayerRepository<Balance, String> repository = mock(StoredPlayerRepository.class);
     private final List<Runnable> queued = new ArrayList<>();
     private final SimpleStoredPlayerSaveService<Balance, String> saves = new SimpleStoredPlayerSaveService<>(
-            Logger.getAnonymousLogger(), this.queued::add, this.repository,
-            mock(StoredPlayerInventory.class), mock(TaskScheduler.class), 20L, ignored -> {
-    });
+            Logger.getAnonymousLogger(),
+            this.queued::add,
+            this.repository,
+            mock(StoredPlayerInventory.class),
+            mock(TaskScheduler.class),
+            20L,
+            ignored -> {
+            }
+    );
 
     @AfterEach
     void stopWorkers() throws InterruptedException {
@@ -45,15 +51,31 @@ class SimpleStoredPlayerSaveServiceTest {
         StoredPlayerInventory<String> inventory = mock(StoredPlayerInventory.class);
         when(inventory.capture(player)).thenReturn("final");
         when(inventory.mergeCaptured(any(), any())).thenAnswer(call -> call.getArgument(0));
-        var service = new SimpleStoredPlayerSaveService<>(Logger.getAnonymousLogger(), this.queued::add,
-                this.repository, inventory, mock(TaskScheduler.class), 20L, ignored -> {});
-        service.saveAndRemove(player, this.cache, closing -> {
-            assertSame(session, closing);
-            assertEquals("final", closing.snapshot().inventoryData());
-            closing.updateProfile(old -> new Balance(30L, old.version()));
-            assertEquals(2L, closing.profileRevision());
-        });
-        doAnswer(call -> { this.written.addAll(call.getArgument(0)); return null; }).when(this.repository).flush(any());
+        var service = new SimpleStoredPlayerSaveService<>(
+                Logger.getAnonymousLogger(),
+                this.queued::add,
+                this.repository,
+                inventory,
+                mock(TaskScheduler.class),
+                20L,
+                ignored -> {
+                }
+        );
+        service.saveAndRemove(
+                player,
+                this.cache,
+                closing -> {
+                    assertSame(session, closing);
+                    assertEquals("final", closing.snapshot().inventoryData());
+                    closing.updateProfile(old -> new Balance(30L, old.version()));
+                    assertEquals(2L, closing.profileRevision());
+                }
+        );
+        doAnswer(call -> {
+                    this.written.addAll(call.getArgument(0));
+                    return null;
+                }
+        ).when(this.repository).flush(any());
         this.queued.removeFirst().run();
         assertEquals(30L, this.written.getFirst().profileData().coins());
         assertEquals("final", this.written.getFirst().inventoryData());
@@ -91,9 +113,10 @@ class SimpleStoredPlayerSaveServiceTest {
         session.captureInventory("latest");
         CountDownLatch calling = new CountDownLatch(1);
         Future<Boolean> immediate = this.caller.submit(() -> {
-            calling.countDown();
-            return this.saves.flushNow(session.uniqueId(), this.cache);
-        });
+                    calling.countDown();
+                    return this.saves.flushNow(session.uniqueId(), this.cache);
+                }
+        );
         assertTrue(calling.await(5, TimeUnit.SECONDS));
         assertThrows(TimeoutException.class, () -> immediate.get(100, TimeUnit.MILLISECONDS));
 
@@ -111,9 +134,10 @@ class SimpleStoredPlayerSaveServiceTest {
     void failedCommitKeepsTheRevisionAvailableForRetry() throws Exception {
         StoredPlayerSession<Balance, String> session = this.session(10L);
         doThrow(new IllegalStateException("database failure")).doAnswer(invocation -> {
-            this.written.addAll(invocation.getArgument(0));
-            return null;
-        }).when(this.repository).flush(any());
+                    this.written.addAll(invocation.getArgument(0));
+                    return null;
+                }
+        ).when(this.repository).flush(any());
 
         assertThrows(IllegalStateException.class, () -> this.saves.flushNow(session.uniqueId(), this.cache));
         assertTrue(session.hasPendingChanges());
@@ -134,9 +158,10 @@ class SimpleStoredPlayerSaveServiceTest {
         session.captureInventory("final");
         CountDownLatch calling = new CountDownLatch(1);
         Future<?> shutdown = this.caller.submit(() -> {
-            calling.countDown();
-            this.saves.shutdownAndFlush(this.cache, false);
-        });
+                    calling.countDown();
+                    this.saves.shutdownAndFlush(this.cache, false);
+                }
+        );
         assertTrue(calling.await(5, TimeUnit.SECONDS));
         assertThrows(TimeoutException.class, () -> shutdown.get(100, TimeUnit.MILLISECONDS));
 
@@ -157,7 +182,10 @@ class SimpleStoredPlayerSaveServiceTest {
         this.saves.saveAndRemove(player, this.cache);
         Future<?> background = this.worker.submit(this.queued.removeFirst());
         assertTrue(this.entered.await(5, TimeUnit.SECONDS));
-        assertTrue(this.saves.updateRetainedProfile(session.uniqueId(), this.cache, old -> new Balance(50L, old.version())));
+        assertTrue(this.saves.updateRetainedProfile(session.uniqueId(), this.cache,
+                        old -> new Balance(50L, old.version())
+        )
+        );
         this.release.countDown();
         background.get(5, TimeUnit.SECONDS);
         while (!this.queued.isEmpty()) this.queued.removeFirst().run();
@@ -168,13 +196,14 @@ class SimpleStoredPlayerSaveServiceTest {
 
     private void blockFirstFlush() throws Exception {
         doAnswer(invocation -> {
-            this.written.addAll(invocation.getArgument(0));
-            if (this.entered.getCount() > 0) {
-                this.entered.countDown();
-                assertTrue(this.release.await(5, TimeUnit.SECONDS));
-            }
-            return null;
-        }).when(this.repository).flush(any());
+                    this.written.addAll(invocation.getArgument(0));
+                    if (this.entered.getCount() > 0) {
+                        this.entered.countDown();
+                        assertTrue(this.release.await(5, TimeUnit.SECONDS));
+                    }
+                    return null;
+                }
+        ).when(this.repository).flush(any());
     }
 
     private StoredPlayerSession<Balance, String> session(long coins) {

@@ -80,9 +80,10 @@ public final class MenuManager implements Listener, ManagedLifecycle, AutoClosea
     public void refresh(Player player) {
         if (player == null) return;
         this.taskScheduler.executeSyncIfNeeded(() -> {
-            OpenMenuSession session = this.openMenus.get(player.getUniqueId());
-            if (session != null) this.refreshInPlace(player, session, false);
-        });
+                    OpenMenuSession session = this.openMenus.get(player.getUniqueId());
+                    if (session != null) this.refreshInPlace(player, session, false);
+                }
+        );
     }
 
     public void close(Player player) {
@@ -103,7 +104,9 @@ public final class MenuManager implements Listener, ManagedLifecycle, AutoClosea
         return inventory != null && inventory.getHolder() instanceof MenuHolder;
     }
 
-    /** Identifies managed display inventories whose contents cannot be moved normally. */
+    /**
+     * Identifies managed display inventories whose contents cannot be moved normally.
+     */
     public boolean isDisplayInventory(Inventory inventory) {
         return inventory != null && inventory.getHolder() instanceof MenuHolder holder
                 && !holder.menu().allowsInventoryInteraction();

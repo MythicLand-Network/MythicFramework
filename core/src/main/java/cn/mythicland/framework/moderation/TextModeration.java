@@ -21,9 +21,15 @@ public interface TextModeration {
         return AliyunTextModeration.create(accessKeyId, accessKeySecret, warningLogger, executor);
     }
 
-    record Detection(String label, Double confidence, String riskWords) {}
+    record Detection(String label, Double confidence, String riskWords) {
+    }
 
-    record Result(boolean available, String riskLevel, List<Detection> detections, String requestId) {
+    record Result(
+            boolean available,
+            String riskLevel,
+            List<Detection> detections,
+            String requestId
+    ) {
         public Result {
             detections = List.copyOf(detections);
         }

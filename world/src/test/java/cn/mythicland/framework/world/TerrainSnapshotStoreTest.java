@@ -19,7 +19,8 @@ class TerrainSnapshotStoreTest {
     @TempDir
     Path directory;
 
-    @Test void saveAndRestore_replacesOnlySanitizedTerrainFiles() throws Exception {
+    @Test
+    void saveAndRestore_replacesOnlySanitizedTerrainFiles() throws Exception {
         Path storage = this.directory.resolve("storage");
         TerrainSnapshotStore store = new TerrainSnapshotStore(storage);
         Path sourceRegion = this.directory.resolve("source/region");
@@ -42,7 +43,8 @@ class TerrainSnapshotStoreTest {
         assertEquals("player-data", Files.readString(playerData));
     }
 
-    @Test void damagedSnapshot_doesNotReplaceCurrentTerrain() throws Exception {
+    @Test
+    void damagedSnapshot_doesNotReplaceCurrentTerrain() throws Exception {
         Path storage = this.directory.resolve("storage");
         Files.createDirectories(storage);
         Files.writeString(storage.resolve("world.terrain"), "not a zip");
@@ -56,7 +58,8 @@ class TerrainSnapshotStoreTest {
         );
     }
 
-    @Test void missingSnapshot_leavesWorldUntouched() throws Exception {
+    @Test
+    void missingSnapshot_leavesWorldUntouched() throws Exception {
         Path storage = this.directory.resolve("storage");
         Path targetRegion = this.directory.resolve("server/world/region");
         assertFalse(new TerrainSnapshotStore(storage).restore("world", targetRegion));

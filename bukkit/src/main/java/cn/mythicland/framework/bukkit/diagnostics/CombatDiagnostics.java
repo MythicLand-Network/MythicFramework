@@ -84,18 +84,26 @@ public final class CombatDiagnostics implements AutoCloseable {
         DiagnosticRecorder.Limits sessionLimits = new DiagnosticRecorder.Limits(
                 Duration.ofSeconds(Math.min(options.durationSeconds(), this.limits.duration().toSeconds())),
                 this.limits.segmentBytes(), this.limits.sessionBytes(), this.limits.directoryBytes(),
-                this.limits.minimumFreeBytes(), this.limits.queueCapacity());
+                this.limits.minimumFreeBytes(), this.limits.queueCapacity()
+        );
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("server", Bukkit.getVersion());
         metadata.put("bukkit", Bukkit.getBukkitVersion());
         metadata.put("java", System.getProperty("java.version"));
         metadata.put("vm", System.getProperty("java.vm.name"));
         metadata.put("os", System.getProperty("os.name"));
-        metadata.put("players", players.stream()
-                .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString()))
-                .toList());
-        metadata.put("observers", observers.stream()
-                .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString())).toList());
+        metadata.put(
+                "players",
+                players.stream()
+                        .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString()))
+                        .toList()
+        );
+        metadata.put(
+                "observers",
+                observers.stream()
+                        .map(player -> Map.of("name", player.getName(), "uuid", player.getUniqueId().toString()))
+                        .toList()
+        );
         metadata.put("packets", options.packets());
         metadata.put("details", options.details());
         metadata.put("sampleTicks", options.sampleTicks());
@@ -108,7 +116,9 @@ public final class CombatDiagnostics implements AutoCloseable {
         metadata.put("sessionBytes", this.limits.sessionBytes());
         metadata.put("directoryBytes", this.limits.directoryBytes());
         metadata.put("minimumFreeBytes", this.limits.minimumFreeBytes());
-        metadata.put("correlation", "frameId links synchronous decode only; packetId is diagnostic object identity, not a protocol sequence number");
+        metadata.put("correlation",
+                "frameId links synchronous decode only; packetId is diagnostic object identity, not a protocol sequence number"
+        );
         DiagnosticRecorder recorder = new DiagnosticRecorder(this.root, sessionLimits, metadata, history);
         Session session = new Session(recorder, watched, receivers, options, history != null);
         this.current = session;
@@ -116,19 +126,22 @@ public final class CombatDiagnostics implements AutoCloseable {
             if (options.includes(DiagnosticOptions.Detail.CORE))
                 session.core = new DiagnosticCoreBridge(recorder, session.ids, watched);
             session.packets = new DiagnosticPackets(this.plugin, recorder, session.ids, players, receivers, options);
-            if (options.includes(DiagnosticOptions.Detail.EVENTS) || options.includes(DiagnosticOptions.Detail.LISTENERS)) {
+            if (options.includes(DiagnosticOptions.Detail.EVENTS) ||
+                    options.includes(DiagnosticOptions.Detail.LISTENERS)) {
                 session.events = new DiagnosticEvents(
                         this.plugin, recorder, session.ids, watched,
                         () -> session.core == null ? 0 : session.core.packetId(),
-                        () -> session.core == null ? 0 : session.core.damageId(), options);
+                        () -> session.core == null ? 0 : session.core.damageId(), options
+                );
             }
             this.captureSnapshots(session, "initial", true);
             session.task = Bukkit.getScheduler().runTaskTimer(this.plugin, () -> this.tick(session), 1, 1);
             this.fingerprint(session);
             recorder.completion().whenComplete((summary, failure) -> {
-                if (!this.closed && this.plugin.isEnabled())
-                    Bukkit.getScheduler().runTask(this.plugin, () -> this.finish(session));
-            });
+                        if (!this.closed && this.plugin.isEnabled())
+                            Bukkit.getScheduler().runTask(this.plugin, () -> this.finish(session));
+                    }
+            );
             return recorder.directory();
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             recorder.fail("session.install", failure);
@@ -191,7 +204,9 @@ public final class CombatDiagnostics implements AutoCloseable {
             long now = System.nanoTime();
             if (session.options.captures(DiagnosticOptions.PacketGroup.COMBAT)
                     || session.options.captures(DiagnosticOptions.PacketGroup.MOVEMENT)) {
-                session.recorder.record("tick", Map.of("tick", DiagnosticSnapshot.tick(), "gapNanos", now - session.lastTick));
+                session.recorder.record("tick",
+                        Map.of("tick", DiagnosticSnapshot.tick(), "gapNanos", now - session.lastTick)
+                );
             }
             session.lastTick = now;
             int tick = session.ticks++;
@@ -204,13 +219,21 @@ public final class CombatDiagnostics implements AutoCloseable {
             if (checkpoint || tick % session.options.sampleTicks() == 0)
                 this.captureSnapshots(session, "tick", checkpoint);
             if (tick % 20 == 0 && session.options.includes(DiagnosticOptions.Detail.RUNTIME)) {
-                session.recorder.record("runtime", Map.of(
-                        "heapUsed", ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(),
-                        "gc", ManagementFactory.getGarbageCollectorMXBeans()
-                                .stream()
-                                .map(gc -> Map.of("name", gc.getName(),
-                                        "count", gc.getCollectionCount(), "millis", gc.getCollectionTime()))
-                                .toList()));
+                session.recorder.record(
+                        "runtime",
+                        Map.of(
+                                "heapUsed",
+                                ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(),
+                                "gc",
+                                ManagementFactory.getGarbageCollectorMXBeans()
+                                        .stream()
+                                        .map(gc -> Map.of("name", gc.getName(),
+                                                        "count", gc.getCollectionCount(), "millis", gc.getCollectionTime()
+                                        )
+                                        )
+                                        .toList()
+                        )
+                );
             }
         } catch (ReflectiveOperationException | RuntimeException failure) {
             session.recorder.fail("tick", failure);
@@ -259,31 +282,32 @@ public final class CombatDiagnostics implements AutoCloseable {
         if (serverSource != null)
             artifacts.add(new LinkedHashMap<>(Map.of("server", true, "source", serverSource.getLocation().toString())));
         session.hashes.execute(() -> {
-            try {
-                for (Map<String, Object> artifact : artifacts) {
-                    if (!session.recorder.isRecording() || Thread.currentThread().isInterrupted()) return;
-                    if (artifact.containsKey("source")) {
-                        Path path = Path.of(URI.create((String) artifact.get("source")));
-                        if (Files.isRegularFile(path)) {
-                            MessageDigest hash = MessageDigest.getInstance("SHA-256");
-                            try (var input = Files.newInputStream(path)) {
-                                byte[] buffer = new byte[65536];
-                                int read;
-                                while ((read = input.read(buffer)) != -1) {
-                                    if (Thread.currentThread().isInterrupted()) return;
-                                    hash.update(buffer, 0, read);
-                                }
+                    try {
+                        for (Map<String, Object> artifact : artifacts) {
+                            if (!session.recorder.isRecording() || Thread.currentThread().isInterrupted()) return;
+                            if (artifact.containsKey("source")) {
+                                Path path = Path.of(URI.create((String) artifact.get("source")));
+                                if (Files.isRegularFile(path)) {
+                                    MessageDigest hash = MessageDigest.getInstance("SHA-256");
+                                    try (var input = Files.newInputStream(path)) {
+                                        byte[] buffer = new byte[65536];
+                                        int read;
+                                        while ((read = input.read(buffer)) != -1) {
+                                            if (Thread.currentThread().isInterrupted()) return;
+                                            hash.update(buffer, 0, read);
+                                        }
+                                    }
+                                    artifact.put("sha256", HexFormat.of().formatHex(hash.digest()));
+                                    artifact.put("bytes", Files.size(path));
+                                } else artifact.put("hashUnavailable", "not_a_regular_file");
                             }
-                            artifact.put("sha256", HexFormat.of().formatHex(hash.digest()));
-                            artifact.put("bytes", Files.size(path));
-                        } else artifact.put("hashUnavailable", "not_a_regular_file");
+                            session.recorder.record("artifact", artifact);
+                        }
+                    } catch (IOException | NoSuchAlgorithmException | RuntimeException failure) {
+                        session.recorder.fail("artifact", failure);
                     }
-                    session.recorder.record("artifact", artifact);
                 }
-            } catch (IOException | NoSuchAlgorithmException | RuntimeException failure) {
-                session.recorder.fail("artifact", failure);
-            }
-        });
+        );
     }
 
     private void finish(Session session) {
@@ -306,15 +330,24 @@ public final class CombatDiagnostics implements AutoCloseable {
         }
         session.detached = session.packets == null ? CompletableFuture.completedFuture(null) : session.packets.detach();
         CompletableFuture.allOf(session.detached, session.recorder.completion()).whenComplete((unused, failure) -> {
-            if (failure != null)
-                this.plugin.getLogger().severe("Failed to remove diagnostic channel probes: " + failure);
-            if (!this.closed && this.plugin.isEnabled()) Bukkit.getScheduler().runTask(this.plugin, () -> {
-                this.last = session.recorder.completion().join();
-                if (this.current == session) this.current = null;
-                this.plugin.getLogger().info("Diagnostics stopped: reason=" + this.last.reason() + ", records=" + this.last.records()
-                        + ", dropped=" + this.last.dropped() + ", error=" + this.last.error() + ", directory=" + this.last.directory());
-            });
-        });
+                    if (failure != null)
+                        this.plugin.getLogger().severe("Failed to remove diagnostic channel probes: " + failure);
+                    if (!this.closed && this.plugin.isEnabled()) Bukkit.getScheduler().runTask(
+                            this.plugin,
+                            () -> {
+                                this.last = session.recorder.completion().join();
+                                if (this.current == session) this.current = null;
+                                this.plugin.getLogger()
+                                        .info("Diagnostics stopped: reason=" + this.last.reason() + ", records=" +
+                                                this.last.records()
+                                                + ", dropped=" + this.last.dropped() + ", error=" + this.last.error() +
+                                                ", directory=" +
+                                                this.last.directory()
+                                        );
+                            }
+                    );
+                }
+        );
     }
 
     @Override
@@ -356,10 +389,11 @@ public final class CombatDiagnostics implements AutoCloseable {
         final Map<UUID, Map<String, Object>> viewerStates = new HashMap<>();
         final DiagnosticIds ids;
         final ExecutorService hashes = Executors.newSingleThreadExecutor(task -> {
-            Thread thread = new Thread(task, "diagnostic-artifact-hashes");
-            thread.setDaemon(true);
-            return thread;
-        });
+                    Thread thread = new Thread(task, "diagnostic-artifact-hashes");
+                    thread.setDaemon(true);
+                    return thread;
+                }
+        );
         DiagnosticCoreBridge core;
         DiagnosticPackets packets;
         DiagnosticEvents events;
@@ -369,7 +403,13 @@ public final class CombatDiagnostics implements AutoCloseable {
         int ticks;
         boolean cleaning;
 
-        Session(DiagnosticRecorder recorder, Set<UUID> watched, Set<UUID> observers, DiagnosticOptions options, boolean history) {
+        Session(
+                DiagnosticRecorder recorder,
+                Set<UUID> watched,
+                Set<UUID> observers,
+                DiagnosticOptions options,
+                boolean history
+        ) {
             this.recorder = recorder;
             this.watched = watched;
             this.observers = observers;

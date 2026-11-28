@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+
 import net.minecraft.server.v1_8_R3.BlockPosition;
+
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -40,8 +42,17 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
         this.ticks = new TickWorkQueue(scheduler, 1, budget.nanosPerTick);
     }
 
-    public Task paste(World world, AlphaSchematic template, int x, int y, int z, Consumer<Progress> progress) {
-        return submit(world, new Bounds(x, y, z, template.width(), template.height(), template.length()), template, null, false, progress);
+    public Task paste(
+            World world,
+            AlphaSchematic template,
+            int x,
+            int y,
+            int z,
+            Consumer<Progress> progress
+    ) {
+        return submit(world, new Bounds(x, y, z, template.width(), template.height(), template.length()), template,
+                null, false, progress
+        );
     }
 
     public ChunkLease lease(World world, Bounds bounds) {
@@ -56,7 +67,9 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
         }
         return new ChunkLease() {
             private boolean released;
-            @Override public void close() {
+
+            @Override
+            public void close() {
                 if (this.released) return;
                 this.released = true;
                 for (ChunkKey key : held) {
@@ -80,7 +93,11 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
     }
 
     public Task patch(World world, List<BlockChange> changes, Consumer<Progress> progress) {
-        if (changes.isEmpty()) return new Task(CompletableFuture.completedFuture(Outcome.COMPLETED), () -> {});
+        if (changes.isEmpty()) return new Task(
+                CompletableFuture.completedFuture(Outcome.COMPLETED),
+                () -> {
+                }
+        );
         Map<BlockPosition, BlockChange> patches = new LinkedHashMap<>();
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
@@ -94,7 +111,8 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
             maxZ = Math.max(maxZ, change.z);
         }
         return submit(world, new Bounds(minX, minY, minZ, maxX - minX + 1, maxY - minY + 1, maxZ - minZ + 1),
-                null, patches, false, progress);
+                null, patches, false, progress
+        );
     }
 
     private Task submit(
@@ -118,11 +136,12 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
         if (this.scheduled || this.closed) return;
         this.scheduled = true;
         this.ticks.submit(() -> {
-            this.scheduled = false;
-            advance();
-            if (!this.active.isEmpty() || !this.pending.isEmpty()) schedule();
-            return null;
-        });
+                    this.scheduled = false;
+                    advance();
+                    if (!this.active.isEmpty() || !this.pending.isEmpty()) schedule();
+                    return null;
+                }
+        );
     }
 
     private void advance() {
@@ -168,7 +187,8 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
                         continue;
                     }
                     if (job.patches != null && job.patches.keySet().stream().noneMatch(
-                            position -> position.getX() >> 4 == job.chunkX && position.getZ() >> 4 == job.chunkZ)) {
+                            position -> position.getX() >> 4 == job.chunkX && position.getZ() >> 4 == job.chunkZ
+                    )) {
                         job.chunkX++;
                         if (job.chunkX > job.maxChunkX) {
                             job.chunkX = job.minChunkX;
@@ -177,7 +197,9 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
                         continue;
                     }
                     boolean inUse = this.active.stream().anyMatch(other -> other != job && other.writer != null
-                            && other.world.equals(job.world) && other.chunkX == job.chunkX && other.chunkZ == job.chunkZ);
+                            && other.world.equals(job.world) && other.chunkX == job.chunkX &&
+                            other.chunkZ == job.chunkZ
+                    );
                     if (inUse) {
                         if (++idle >= this.active.size()) break;
                         continue;
@@ -226,7 +248,12 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
         this.pending.clear();
     }
 
-    public record Budget(int positionsPerTick, long nanosPerTick, int chunksPerTick, int activeTasks) {
+    public record Budget(
+            int positionsPerTick,
+            long nanosPerTick,
+            int chunksPerTick,
+            int activeTasks
+    ) {
         public Budget {
             if (positionsPerTick <= 0 || nanosPerTick <= 0 || chunksPerTick <= 0 || activeTasks <= 0)
                 throw new IllegalArgumentException("World edit budgets must be positive");
@@ -235,13 +262,22 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
 
     public record Bounds(int x, int y, int z, int width, int height, int length) {
         public Bounds {
-            if (width <= 0 || height <= 0 || length <= 0) throw new IllegalArgumentException("Edit dimensions must be positive");
+            if (width <= 0 || height <= 0 || length <= 0)
+                throw new IllegalArgumentException("Edit dimensions must be positive");
         }
     }
 
-    public record BlockChange(int x, int y, int z, int id, int data, NBTTagCompound tile) {
+    public record BlockChange(
+            int x,
+            int y,
+            int z,
+            int id,
+            int data,
+            NBTTagCompound tile
+    ) {
         public BlockChange {
-            if (id < 0 || id > 4095 || Block.getById(id) == null || data < 0 || data > 15) throw new IllegalArgumentException("Invalid block state");
+            if (id < 0 || id > 4095 || Block.getById(id) == null || data < 0 || data > 15)
+                throw new IllegalArgumentException("Invalid block state");
             if (tile != null) tile = (NBTTagCompound) tile.clone();
         }
     }
@@ -249,16 +285,18 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
     public record Progress(int completedChunks, int totalChunks) {
     }
 
-    public enum Outcome { COMPLETED, CANCELLED }
+    public enum Outcome {COMPLETED, CANCELLED}
 
     public record Task(CompletableFuture<Outcome> result, Runnable cancel) {
     }
 
     public interface ChunkLease extends AutoCloseable {
-        @Override void close();
+        @Override
+        void close();
     }
 
-    private record ChunkKey(World world, int x, int z) {}
+    private record ChunkKey(World world, int x, int z) {
+    }
 
     private final class Job {
         private final World world;
@@ -339,12 +377,16 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
                     }
                 }
             } else {
-                int index = this.template == null ? 0 : this.template.index(this.x - this.bounds.x, this.y - this.bounds.y, this.z - this.bounds.z);
+                int index = this.template == null ? 0 :
+                        this.template.index(this.x - this.bounds.x, this.y - this.bounds.y, this.z - this.bounds.z);
                 this.writer.set(this.x, this.y, this.z, this.template == null ? 0 : this.template.id(index),
-                        this.template == null ? 0 : this.template.data(index));
+                        this.template == null ? 0 : this.template.data(index)
+                );
                 if (this.template != null) {
-                    NBTTagCompound tile = this.template.tile(this.x - this.bounds.x, this.y - this.bounds.y, this.z - this.bounds.z,
-                            this.bounds.x, this.bounds.y, this.bounds.z);
+                    NBTTagCompound tile =
+                            this.template.tile(this.x - this.bounds.x, this.y - this.bounds.y, this.z - this.bounds.z,
+                                    this.bounds.x, this.bounds.y, this.bounds.z
+                            );
                     if (tile != null) this.tiles.add(tile);
                 }
             }
@@ -358,7 +400,8 @@ public final class SchematicWorkQueue implements Listener, AutoCloseable {
             this.tiles.clear();
             for (Player player : this.world.getPlayers()) {
                 if (Math.abs((player.getLocation().getBlockX() >> 4) - this.chunkX) <= 10
-                        && Math.abs((player.getLocation().getBlockZ() >> 4) - this.chunkZ) <= 10) this.writer.refresh(player);
+                        && Math.abs((player.getLocation().getBlockZ() >> 4) - this.chunkZ) <= 10)
+                    this.writer.refresh(player);
             }
             this.saveTicks = 0;
             this.saving = this.writer.saveVerified(SchematicWorkQueue.this.io);

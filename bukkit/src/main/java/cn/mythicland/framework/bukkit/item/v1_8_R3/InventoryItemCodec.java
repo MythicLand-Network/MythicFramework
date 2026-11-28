@@ -53,7 +53,8 @@ public final class InventoryItemCodec {
             header.writeInt(MAGIC);
             header.writeByte(VERSION);
             try (DataOutputStream output = new DataOutputStream(
-                    new BufferedOutputStream(new InventoryGzipOutputStream(header, compressionLevel)))) {
+                    new BufferedOutputStream(new InventoryGzipOutputStream(header, compressionLevel))
+            )) {
                 output.writeInt(length);
                 for (int index = 0; index < length; index++) writer.write(index, output);
             }
@@ -125,32 +126,36 @@ public final class InventoryItemCodec {
             ByteArrayOutputStream slotBuffer = new ByteArrayOutputStream();
             DataOutputStream slotOutput = new DataOutputStream(slotBuffer);
             int[] remaining = {MAX_CACHED_SLOT_BYTES};
-            String nextEncoded = InventoryItemCodec.encode(items.length, this.compressionLevel, (index, output) -> {
-                ItemStack item = items[index];
-                boolean unchanged = index < firstChanged;
-                if (index > firstChanged && this.snapshot != null && index < this.snapshot.length) {
-                    unchanged = NmsItemStackAccess.matches(item, this.snapshot[index]);
-                }
-                nextSnapshot[index] = unchanged ? this.snapshot[index] : copyItem(item);
-                byte[] cached = unchanged ? this.cachedSlots[index] : null;
-                if (cached != null) {
-                    output.write(cached);
-                    if (cached.length <= remaining[0]) {
-                        nextSlots[index] = cached;
-                        remaining[0] -= cached.length;
+            String nextEncoded = InventoryItemCodec.encode(
+                    items.length,
+                    this.compressionLevel,
+                    (index, output) -> {
+                        ItemStack item = items[index];
+                        boolean unchanged = index < firstChanged;
+                        if (index > firstChanged && this.snapshot != null && index < this.snapshot.length) {
+                            unchanged = NmsItemStackAccess.matches(item, this.snapshot[index]);
+                        }
+                        nextSnapshot[index] = unchanged ? this.snapshot[index] : copyItem(item);
+                        byte[] cached = unchanged ? this.cachedSlots[index] : null;
+                        if (cached != null) {
+                            output.write(cached);
+                            if (cached.length <= remaining[0]) {
+                                nextSlots[index] = cached;
+                                remaining[0] -= cached.length;
+                            }
+                        } else if (item == null || remaining[0] == 0) {
+                            writeItem(item, output);
+                        } else {
+                            slotBuffer.reset();
+                            writeItem(item, slotOutput);
+                            slotBuffer.writeTo(output);
+                            if (slotBuffer.size() <= remaining[0]) {
+                                nextSlots[index] = slotBuffer.toByteArray();
+                                remaining[0] -= slotBuffer.size();
+                            }
+                        }
                     }
-                } else if (item == null || remaining[0] == 0) {
-                    writeItem(item, output);
-                } else {
-                    slotBuffer.reset();
-                    writeItem(item, slotOutput);
-                    slotBuffer.writeTo(output);
-                    if (slotBuffer.size() <= remaining[0]) {
-                        nextSlots[index] = slotBuffer.toByteArray();
-                        remaining[0] -= slotBuffer.size();
-                    }
-                }
-            });
+            );
             this.snapshot = nextSnapshot;
             this.cachedSlots = nextSlots;
             this.encoded = nextEncoded;

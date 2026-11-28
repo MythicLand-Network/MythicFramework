@@ -14,7 +14,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-/** Synchronous share storage; callers own scheduling and use one instance per table. */
+/**
+ * Synchronous share storage; callers own scheduling and use one instance per table.
+ */
 public final class JdbcShareStore<T> {
     private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final Pattern CODE = Pattern.compile("[A-Z0-9]{6}");
@@ -96,7 +98,8 @@ public final class JdbcShareStore<T> {
     public Optional<T> find(String code) {
         try (Connection connection = dataSource.get().getConnection();
              PreparedStatement statement = connection.prepareStatement(
-                     "SELECT " + column + " FROM " + table + " WHERE share_code = ?")) {
+                     "SELECT " + column + " FROM " + table + " WHERE share_code = ?"
+             )) {
             statement.setString(1, code);
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next()) return Optional.empty();
@@ -112,7 +115,8 @@ public final class JdbcShareStore<T> {
     private String existingCode(Connection connection, UUID owner, T data) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT share_code, " + column + " FROM " + table +
-                        " WHERE owner_uuid = ? ORDER BY created_at ASC, share_code ASC")) {
+                        " WHERE owner_uuid = ? ORDER BY created_at ASC, share_code ASC"
+        )) {
             bindOwner(statement, 1, owner);
             try (ResultSet rows = statement.executeQuery()) {
                 while (rows.next()) {

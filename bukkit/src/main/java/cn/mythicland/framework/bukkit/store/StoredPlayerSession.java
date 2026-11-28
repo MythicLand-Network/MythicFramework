@@ -196,16 +196,17 @@ public final class StoredPlayerSession<P, I> {
         if (request.flushInventory()) this.captureInventory(request.inventoryData());
         long committedProfileRevision = profileUnchanged ? this.profileRevision : request.profileRevision();
         this.flushSucceeded(new StoredPlayerFlush<>(
-                request.uniqueId(),
-                request.profileData(),
-                request.inventoryData(),
-                request.profileVersion(),
-                request.inventoryVersion(),
-                committedProfileRevision,
-                this.inventoryRevision,
-                true,
-                request.flushInventory()
-        ));
+                        request.uniqueId(),
+                        request.profileData(),
+                        request.inventoryData(),
+                        request.profileVersion(),
+                        request.inventoryVersion(),
+                        committedProfileRevision,
+                        this.inventoryRevision,
+                        true,
+                        request.flushInventory()
+        )
+        );
         this.appliedTransaction = request;
     }
 }

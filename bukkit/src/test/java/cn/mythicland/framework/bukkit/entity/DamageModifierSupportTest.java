@@ -28,10 +28,13 @@ class DamageModifierSupportTest {
     @Test
     void replacesMultipleEquipmentFunctionsTogether() {
         var event = event(20);
-        DamageModifierSupport.replaceReductions(event, Map.of(
-                DamageModifier.ARMOR, incoming -> incoming,
-                DamageModifier.RESISTANCE, incoming -> incoming
-        ));
+        DamageModifierSupport.replaceReductions(
+                event,
+                Map.of(
+                        DamageModifier.ARMOR, incoming -> incoming,
+                        DamageModifier.RESISTANCE, incoming -> incoming
+                )
+        );
         assertEquals(16, event.getFinalDamage(), 1e-9);
         event.setDamage(40);
         assertEquals(36, event.getFinalDamage(), 1e-9);
@@ -55,11 +58,16 @@ class DamageModifierSupportTest {
         DamageModifierSupport.replaceReduction(event, DamageModifier.ARMOR, incoming -> incoming * 0.5);
         assertEquals(3, event.getFinalDamage(), 1e-9);
         double before = event.getFinalDamage();
-        assertThrows(IllegalArgumentException.class, () -> DamageModifierSupport.replaceReduction(
-                event, DamageModifier.ARMOR, incoming -> Double.NaN));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DamageModifierSupport.replaceReduction(
+                        event, DamageModifier.ARMOR, incoming -> Double.NaN
+                )
+        );
         assertEquals(before, event.getFinalDamage());
         assertThrows(IllegalArgumentException.class,
-                () -> DamageModifierSupport.replaceReduction(event, DamageModifier.BASE, incoming -> incoming));
+                () -> DamageModifierSupport.replaceReduction(event, DamageModifier.BASE, incoming -> incoming)
+        );
     }
 
     private static EntityDamageByEntityEvent event(double damage) {
@@ -78,6 +86,7 @@ class DamageModifierSupportTest {
             remaining += value;
         }
         return new EntityDamageByEntityEvent(mock(Entity.class), mock(Entity.class),
-                EntityDamageEvent.DamageCause.ENTITY_ATTACK, values, functions);
+                EntityDamageEvent.DamageCause.ENTITY_ATTACK, values, functions
+        );
     }
 }

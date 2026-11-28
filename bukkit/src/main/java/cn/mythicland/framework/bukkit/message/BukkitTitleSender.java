@@ -9,7 +9,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public final class BukkitTitleSender {
-    public void send(Player player, String title, String subtitle, int fadeIn, int stay, int fadeOut) {
+    public void send(
+            Player player,
+            String title,
+            String subtitle,
+            int fadeIn,
+            int stay,
+            int fadeOut
+    ) {
         if (player == null) return;
         try {
             String version = this.detectVersion();

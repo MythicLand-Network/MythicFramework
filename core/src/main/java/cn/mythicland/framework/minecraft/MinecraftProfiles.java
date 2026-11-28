@@ -88,12 +88,14 @@ public final class MinecraftProfiles {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response =
+                    client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() == 204 || response.statusCode() == 404) return Optional.empty();
             if (fallbackEndpoint != null && (response.statusCode() == 429 || response.statusCode() >= 500)) {
                 return lookupFallback(name);
             }
-            if (response.statusCode() != 200) throw new IllegalStateException("Minecraft profile lookup failed: HTTP " + response.statusCode());
+            if (response.statusCode() != 200)
+                throw new IllegalStateException("Minecraft profile lookup failed: HTTP " + response.statusCode());
             JsonObject object = JsonParser.parseString(response.body()).getAsJsonObject();
             String id = object.get("id").getAsString();
             String canonicalName = object.get("name").getAsString();
@@ -101,7 +103,8 @@ public final class MinecraftProfiles {
                 throw new IllegalStateException("Invalid Minecraft profile response");
             }
             UUID uuid = UUID.fromString(id.substring(0, 8) + "-" + id.substring(8, 12) + "-"
-                    + id.substring(12, 16) + "-" + id.substring(16, 20) + "-" + id.substring(20));
+                    + id.substring(12, 16) + "-" + id.substring(16, 20) + "-" + id.substring(20)
+            );
             return Optional.of(new Profile(uuid, canonicalName));
         } catch (IOException exception) {
             if (fallbackEndpoint != null) return lookupFallback(name);
@@ -118,9 +121,12 @@ public final class MinecraftProfiles {
                 .GET()
                 .build();
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response =
+                    client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200) {
-                throw new IllegalStateException("Minecraft profile fallback lookup failed: HTTP " + response.statusCode());
+                throw new IllegalStateException(
+                        "Minecraft profile fallback lookup failed: HTTP " + response.statusCode()
+                );
             }
             JsonObject object = JsonParser.parseString(response.body()).getAsJsonObject();
             JsonElement exists = object.get("exists");

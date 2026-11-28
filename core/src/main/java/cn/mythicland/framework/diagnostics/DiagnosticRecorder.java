@@ -94,7 +94,12 @@ public final class DiagnosticRecorder implements AutoCloseable {
         this(root, limits, metadata, null);
     }
 
-    public DiagnosticRecorder(Path root, Limits limits, Map<String, Object> metadata, History history) throws IOException {
+    public DiagnosticRecorder(
+            Path root,
+            Limits limits,
+            Map<String, Object> metadata,
+            History history
+    ) throws IOException {
         if (history != null && history.maxBytes() > limits.sessionBytes() - 65536)
             throw new IllegalArgumentException("History byte budget must leave room within the session limit");
         this.limits = limits;
@@ -102,7 +107,8 @@ public final class DiagnosticRecorder implements AutoCloseable {
         this.buffering = history != null;
         Files.createDirectories(root);
         try (var files = Files.walk(root)) {
-            this.priorDirectoryBytes = files.filter(Files::isRegularFile).mapToLong(path -> path.toFile().length()).sum();
+            this.priorDirectoryBytes =
+                    files.filter(Files::isRegularFile).mapToLong(path -> path.toFile().length()).sum();
         }
         if (this.priorDirectoryBytes + 65536 >= limits.directoryBytes()) {
             throw new IOException("Diagnostic directory quota reached: " + root);
@@ -110,13 +116,15 @@ public final class DiagnosticRecorder implements AutoCloseable {
         if (Files.getFileStore(root).getUsableSpace() < limits.minimumFreeBytes() + 65536) {
             throw new IOException("Insufficient free disk space for diagnostics: " + root);
         }
-        this.directory = Files.createDirectory(root.resolve(Instant.now().toString().replace(':', '-') + "-" + this.session));
+        this.directory =
+                Files.createDirectory(root.resolve(Instant.now().toString().replace(':', '-') + "-" + this.session));
         this.queue = new ArrayBlockingQueue<>(limits.queueCapacity());
         this.deadline = Executors.newSingleThreadScheduledExecutor(task -> {
-            Thread thread = new Thread(task, "diagnostic-deadline");
-            thread.setDaemon(true);
-            return thread;
-        });
+                    Thread thread = new Thread(task, "diagnostic-deadline");
+                    thread.setDaemon(true);
+                    return thread;
+                }
+        );
         this.record("session.start", metadata);
         this.writer = new Thread(this::write, "diagnostic-writer");
         this.writer.setDaemon(true);
@@ -151,7 +159,9 @@ public final class DiagnosticRecorder implements AutoCloseable {
 
     private void startDeadline() {
         this.deadlineNanos = System.nanoTime() + this.limits.duration().toNanos();
-        this.deadline.schedule(() -> this.stop("duration_limit"), this.limits.duration().toNanos(), TimeUnit.NANOSECONDS);
+        this.deadline.schedule(() -> this.stop("duration_limit"), this.limits.duration().toNanos(),
+                TimeUnit.NANOSECONDS
+        );
     }
 
     public synchronized void trigger() {
@@ -252,12 +262,14 @@ public final class DiagnosticRecorder implements AutoCloseable {
                 }
                 long storageReserve = 65536L + (segments.size() + 1L) * 512 + (this.written + 1) * 16
                         + (this.bytes + encoded.length) / 100;
-                if (this.priorDirectoryBytes + this.bytes + encoded.length + storageReserve > this.limits.directoryBytes()) {
+                if (this.priorDirectoryBytes + this.bytes + encoded.length + storageReserve >
+                        this.limits.directoryBytes()) {
                     this.dropped.incrementAndGet();
                     this.stop("directory_size_limit");
                     break;
                 }
-                if (this.written % 128 == 0 && Files.getFileStore(this.directory).getUsableSpace() < this.limits.minimumFreeBytes() + 65536) {
+                if (this.written % 128 == 0 &&
+                        Files.getFileStore(this.directory).getUsableSpace() < this.limits.minimumFreeBytes() + 65536) {
                     this.dropped.incrementAndGet();
                     this.stop("free_space_limit");
                     break;
@@ -266,8 +278,14 @@ public final class DiagnosticRecorder implements AutoCloseable {
                     if (output != null) output.close();
                     String name = String.format("%04d.jsonl.gz", segments.size() + 1);
                     segments.add(name);
-                    output = new GZIPOutputStream(new BufferedOutputStream(Files.newOutputStream(
-                            this.directory.resolve(name), StandardOpenOption.CREATE_NEW)), 65536, true);
+                    output = new GZIPOutputStream(
+                            new BufferedOutputStream(Files.newOutputStream(
+                                    this.directory.resolve(name), StandardOpenOption.CREATE_NEW
+                            )
+                            ),
+                            65536,
+                            true
+                    );
                     segmentBytes = 0;
                 }
                 output.write(encoded);

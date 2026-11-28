@@ -83,14 +83,25 @@ public final class ConfigBinder {
         throw this.failure(field, path, "unsupported field type: " + targetType.getName());
     }
 
-    private <T> T requireType(Field field, String path, Object rawValue, Class<T> expectedType) {
+    private <T> T requireType(
+            Field field,
+            String path,
+            Object rawValue,
+            Class<T> expectedType
+    ) {
         if (!expectedType.isInstance(rawValue)) {
             throw this.failure(field, path, "value must be " + expectedType.getSimpleName());
         }
         return expectedType.cast(rawValue);
     }
 
-    private Number integerValue(Field field, String path, Object rawValue, long minimum, long maximum) {
+    private Number integerValue(
+            Field field,
+            String path,
+            Object rawValue,
+            long minimum,
+            long maximum
+    ) {
         if (!(rawValue instanceof Number numberValue)) {
             throw this.failure(field, path, "value must be an integer");
         }
@@ -103,7 +114,12 @@ public final class ConfigBinder {
         return longValue;
     }
 
-    private Object enumValue(Field field, String path, Object rawValue, Class<?> targetType) {
+    private Object enumValue(
+            Field field,
+            String path,
+            Object rawValue,
+            Class<?> targetType
+    ) {
         if (!(rawValue instanceof String stringValue)) {
             throw this.failure(field, path, "value must be a string");
         }
@@ -138,7 +154,12 @@ public final class ConfigBinder {
         return new ConfigException(this.fileName + ": " + path + " (" + field + "): " + detail);
     }
 
-    private ConfigException failure(Field field, String path, String detail, Throwable cause) {
+    private ConfigException failure(
+            Field field,
+            String path,
+            String detail,
+            Throwable cause
+    ) {
         return new ConfigException(this.fileName + ": " + path + " (" + field + "): " + detail, cause);
     }
 }

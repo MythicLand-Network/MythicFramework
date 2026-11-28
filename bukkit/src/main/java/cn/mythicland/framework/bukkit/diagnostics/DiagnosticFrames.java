@@ -17,7 +17,12 @@ final class DiagnosticFrames extends ChannelInboundHandlerAdapter {
     private final ThreadLocal<Long> frame;
     private final DiagnosticOptions options;
 
-    DiagnosticFrames(DiagnosticRecorder recorder, UUID uuid, ThreadLocal<Long> frame, DiagnosticOptions options) {
+    DiagnosticFrames(
+            DiagnosticRecorder recorder,
+            UUID uuid,
+            ThreadLocal<Long> frame,
+            DiagnosticOptions options
+    ) {
         this.recorder = recorder;
         this.uuid = uuid;
         this.frame = frame;

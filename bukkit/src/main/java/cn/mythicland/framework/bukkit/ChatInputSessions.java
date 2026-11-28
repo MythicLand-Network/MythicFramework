@@ -24,7 +24,13 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
         this.scheduler = scheduler;
     }
 
-    public void begin(Player player, Object owner, Predicate<String> consumes, Input input, Runnable cleanup) {
+    public void begin(
+            Player player,
+            Object owner,
+            Predicate<String> consumes,
+            Input input,
+            Runnable cleanup
+    ) {
         this.begin(player, owner, consumes, input, cleanup, null);
     }
 
@@ -42,7 +48,12 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
         this.sessions.put(player.getUniqueId(), session);
     }
 
-    public void begin(Player player, Object owner, Input input, Runnable cleanup) {
+    public void begin(
+            Player player,
+            Object owner,
+            Input input,
+            Runnable cleanup
+    ) {
         begin(player, owner, text -> true, input, cleanup);
     }
 
@@ -66,10 +77,11 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
         if (!cancel && !session.consumes.test(text)) return;
         event.setCancelled(true);
         this.scheduler.executeSync(() -> {
-            if (this.sessions.get(player.getUniqueId()) != session || !player.isOnline()) return;
-            if (session.input.accept(player, text, cancel) == Result.FINISH
-                    && this.sessions.remove(player.getUniqueId(), session)) session.cleanup.run();
-        });
+                    if (this.sessions.get(player.getUniqueId()) != session || !player.isOnline()) return;
+                    if (session.input.accept(player, text, cancel) == Result.FINISH
+                            && this.sessions.remove(player.getUniqueId(), session)) session.cleanup.run();
+                }
+        );
     }
 
     @EventHandler
@@ -91,14 +103,20 @@ public final class ChatInputSessions implements Listener, AutoCloseable {
         for (Session session : this.sessions.values()) clear(session.player.getUniqueId(), session.owner);
     }
 
-    public enum Result { RETRY, FINISH }
+    public enum Result {RETRY, FINISH}
 
     @FunctionalInterface
     public interface Input {
         Result accept(Player player, String text, boolean cancelled);
     }
 
-    private record Session(Player player, Object owner, Predicate<String> consumes, Input input, Runnable cleanup,
-                           Function<String, List<String>> completions) {
+    private record Session(
+            Player player,
+            Object owner,
+            Predicate<String> consumes,
+            Input input,
+            Runnable cleanup,
+            Function<String, List<String>> completions
+    ) {
     }
 }

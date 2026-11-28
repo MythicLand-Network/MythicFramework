@@ -1,6 +1,7 @@
 package cn.mythicland.framework.bukkit.diagnostics;
 
 import java.lang.reflect.Array;
+
 import net.minecraft.server.v1_8_R3.EntityPlayer;
 import net.minecraft.server.v1_8_R3.DataWatcher;
 import net.minecraft.server.v1_8_R3.GenericAttributes;
@@ -67,11 +68,16 @@ final class DiagnosticSnapshot {
             out.put("hand", value(player.getItemInHand(), 0, new IdentityHashMap<>(), remaining));
             out.put("armor", value(player.getInventory().getArmorContents(), 0, new IdentityHashMap<>(), remaining));
         }
-        if (options.captures(DiagnosticOptions.PacketGroup.LATENCY)) out.put("ping", ((CraftPlayer) player).getHandle().ping);
+        if (options.captures(DiagnosticOptions.PacketGroup.LATENCY))
+            out.put("ping", ((CraftPlayer) player).getHandle().ping);
         return out;
     }
 
-    static Map<String, Object> viewer(Player viewer, Collection<? extends Player> targets, DiagnosticOptions options) {
+    static Map<String, Object> viewer(
+            Player viewer,
+            Collection<? extends Player> targets,
+            DiagnosticOptions options
+    ) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("uuid", viewer.getUniqueId().toString());
         if (options.captures(DiagnosticOptions.PacketGroup.HEALTH)) {
@@ -83,7 +89,12 @@ final class DiagnosticSnapshot {
                     var score = objective.getScore(target.getName());
                     scores.put(target.getName(), score.isScoreSet() ? score.getScore() : null);
                 }
-                out.put("belowName", Map.of("objective", objective.getName(), "displayName", objective.getDisplayName(), "scores", scores));
+                out.put(
+                        "belowName",
+                        Map.of("objective", objective.getName(), "displayName", objective.getDisplayName(), "scores",
+                                scores
+                        )
+                );
             }
         }
         if (options.captures(DiagnosticOptions.PacketGroup.VISIBILITY)
@@ -101,14 +112,17 @@ final class DiagnosticSnapshot {
         out.put("position", location(player.getLocation()));
         out.put("eye", location(player.getEyeLocation()));
         out.put("velocity", vector(player.getVelocity()));
-        out.put("bounds", List.of(
-                handle.getBoundingBox().a,
-                handle.getBoundingBox().b,
-                handle.getBoundingBox().c,
-                handle.getBoundingBox().d,
-                handle.getBoundingBox().e,
-                handle.getBoundingBox().f
-        ));
+        out.put(
+                "bounds",
+                List.of(
+                        handle.getBoundingBox().a,
+                        handle.getBoundingBox().b,
+                        handle.getBoundingBox().c,
+                        handle.getBoundingBox().d,
+                        handle.getBoundingBox().e,
+                        handle.getBoundingBox().f
+                )
+        );
         out.put("health", player.getHealth());
         out.put("maxHealth", player.getMaxHealth());
         out.put("absorption", handle.getAbsorptionHearts());
@@ -131,12 +145,22 @@ final class DiagnosticSnapshot {
         out.put("ping", handle.ping);
         out.put("slot", player.getInventory().getHeldItemSlot());
         ItemStack hand = player.getItemInHand();
-        out.put("hand", equipment ? value(hand, 0, new IdentityHashMap<>(), remaining) : hand == null ? "AIR" : hand.getType().name());
-        out.put("potions", player.getActivePotionEffects()
-                .stream()
-                .map(effect -> Map.of(
-                        "type", effect.getType().getName(), "amplifier", effect.getAmplifier(), "duration", effect.getDuration()))
-                .toList());
+        out.put(
+                "hand",
+                equipment ? value(hand, 0, new IdentityHashMap<>(), remaining) :
+                        hand == null ? "AIR" : hand.getType().name()
+        );
+        out.put(
+                "potions",
+                player.getActivePotionEffects()
+                        .stream()
+                        .map(effect -> Map.of(
+                                        "type", effect.getType().getName(), "amplifier", effect.getAmplifier(), "duration",
+                                        effect.getDuration()
+                        )
+                        )
+                        .toList()
+        );
         Location feet = player.getLocation();
         List<Object> footing = new ArrayList<>();
         for (int dy = -1; dy <= 0; dy++) {
@@ -209,7 +233,12 @@ final class DiagnosticSnapshot {
         return value(object, 0, new IdentityHashMap<>(), new int[]{512, 8192});
     }
 
-    private static Object value(Object object, int depth, IdentityHashMap<Object, Boolean> seen, int[] remaining) {
+    private static Object value(
+            Object object,
+            int depth,
+            IdentityHashMap<Object, Boolean> seen,
+            int[] remaining
+    ) {
         if (--remaining[0] < 0) return Map.of("omitted", "node_limit");
         if (object == null || object instanceof Number || object instanceof Boolean) return object;
         if (object instanceof String text) return limited(text, remaining);
@@ -260,7 +289,9 @@ final class DiagnosticSnapshot {
                         out.put("omitted", "entry_limit");
                         break;
                     }
-                    out.put(limited(String.valueOf(entry.getKey()), remaining), value(entry.getValue(), depth + 1, seen, remaining));
+                    out.put(limited(String.valueOf(entry.getKey()), remaining),
+                            value(entry.getValue(), depth + 1, seen, remaining)
+                    );
                 }
                 return out;
             }
@@ -330,13 +361,14 @@ final class DiagnosticSnapshot {
             return map.entrySet().stream()
                     .limit(48)
                     .anyMatch(entry -> containsPlayer(
-                            entry.getKey(),
-                            watched,
-                            depth + 1,
-                            seen,
-                            remaining
+                                    entry.getKey(),
+                                    watched,
+                                    depth + 1,
+                                    seen,
+                                    remaining
                     )
-                            || containsPlayer(entry.getValue(), watched, depth + 1, seen, remaining));
+                                    || containsPlayer(entry.getValue(), watched, depth + 1, seen, remaining)
+                    );
         }
         if (object instanceof Iterable<?> iterable) {
             int count = 0;
@@ -354,7 +386,8 @@ final class DiagnosticSnapshot {
             }
             return false;
         }
-        if (object instanceof Number || object instanceof String || object instanceof Boolean || object instanceof Enum<?>
+        if (object instanceof Number || object instanceof String || object instanceof Boolean ||
+                object instanceof Enum<?>
                 || object.getClass().getName().startsWith("java.")) return false;
         try {
             for (Class<?> type = object.getClass(); type != null && type != Object.class; type = type.getSuperclass()) {
@@ -388,6 +421,7 @@ final class DiagnosticSnapshot {
     private static String limited(String text, int[] remaining) {
         int length = Math.min(text.length(), Math.max(0, remaining[1]));
         remaining[1] -= length;
-        return length == text.length() ? text : text.substring(0, length) + " [omitted:string_budget,originalLength=" + text.length() + "]";
+        return length == text.length() ? text :
+                text.substring(0, length) + " [omitted:string_budget,originalLength=" + text.length() + "]";
     }
 }

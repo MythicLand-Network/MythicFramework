@@ -29,8 +29,12 @@ class DiagnosticPacketSelectionTest {
         when(target.getUniqueId()).thenReturn(UUID.randomUUID());
         when(target.getName()).thenReturn("Windyqing");
         when(target.getEntityId()).thenReturn(887);
-        DiagnosticPacketSelection selection = new DiagnosticPacketSelection(new DiagnosticOptions(
-                Set.of(DiagnosticOptions.PacketGroup.VISIBILITY), Set.of(), 60, 20), List.of(target));
+        DiagnosticPacketSelection selection = new DiagnosticPacketSelection(
+                new DiagnosticOptions(
+                        Set.of(DiagnosticOptions.PacketGroup.VISIBILITY), Set.of(), 60, 20
+                ),
+                List.of(target)
+        );
         ScoreboardTeam team = new Scoreboard().createTeam("selected");
         PacketPlayOutScoreboardTeam join = new PacketPlayOutScoreboardTeam(team, List.of("Windyqing"), 3);
         assertTrue(selection.relevant(observer, join, true));
@@ -38,9 +42,13 @@ class DiagnosticPacketSelectionTest {
         DiagnosticPacketSelection wire = selection.copy();
         PacketPlayOutScoreboardTeam removal = new PacketPlayOutScoreboardTeam(team, 1);
         assertTrue(selection.relevant(observer, removal, true));
-        assertTrue(selection.relevant(observer, removal, true), "Selection must not consume a packet before later capture stages");
+        assertTrue(selection.relevant(observer, removal, true),
+                "Selection must not consume a packet before later capture stages"
+        );
         selection.sent(observer, removal);
-        assertTrue(wire.relevant(observer, removal, true), "Encoded-stage team state must not be consumed by the earlier write stage");
+        assertTrue(wire.relevant(observer, removal, true),
+                "Encoded-stage team state must not be consumed by the earlier write stage"
+        );
         wire.sent(observer, removal);
         assertFalse(wire.relevant(observer, new PacketPlayOutScoreboardTeam(team, 0), true));
         assertFalse(selection.relevant(observer, new PacketPlayOutScoreboardTeam(team, 0), true));
@@ -55,8 +63,14 @@ class DiagnosticPacketSelectionTest {
         when(target.getUniqueId()).thenReturn(targetId);
         when(target.getName()).thenReturn("Windyqing");
         when(target.getEntityId()).thenReturn(887);
-        DiagnosticOptions options = new DiagnosticOptions(Set.of(DiagnosticOptions.PacketGroup.EQUIPMENT,
-                DiagnosticOptions.PacketGroup.HEALTH), Set.of(), 60, 20);
+        DiagnosticOptions options = new DiagnosticOptions(
+                Set.of(DiagnosticOptions.PacketGroup.EQUIPMENT,
+                        DiagnosticOptions.PacketGroup.HEALTH
+                ),
+                Set.of(),
+                60,
+                20
+        );
         DiagnosticPacketSelection selection = new DiagnosticPacketSelection(options, List.of(target));
 
         assertTrue(selection.relevant(observer, new PacketPlayOutEntityEquipment(887, 4, null), true));

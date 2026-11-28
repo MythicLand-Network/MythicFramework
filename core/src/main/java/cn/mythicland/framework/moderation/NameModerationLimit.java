@@ -37,7 +37,8 @@ public final class NameModerationLimit<K> {
             rejectionTimes = new ArrayDeque<>(LIMIT);
         } else {
             if (rejectionTimes.size() == LIMIT) return true;
-            while (!rejectionTimes.isEmpty() && now - rejectionTimes.getFirst() >= WINDOW_NANOS) rejectionTimes.removeFirst();
+            while (!rejectionTimes.isEmpty() && now - rejectionTimes.getFirst() >= WINDOW_NANOS)
+                rejectionTimes.removeFirst();
         }
         rejectionTimes.addLast(now);
         this.rejections.putLast(key, rejectionTimes);

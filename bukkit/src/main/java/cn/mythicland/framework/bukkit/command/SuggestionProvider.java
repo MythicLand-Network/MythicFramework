@@ -14,13 +14,15 @@ public interface SuggestionProvider {
     static SuggestionProvider empty() {
         return (
                 sender,
-                context) -> List.of();
+                context
+        ) -> List.of();
     }
 
     static SuggestionProvider onlinePlayers() {
         return (
                 sender,
-                context) -> {
+                context
+        ) -> {
             List<String> names = new ArrayList<>();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 names.add(player.getName());
@@ -32,13 +34,15 @@ public interface SuggestionProvider {
     static SuggestionProvider staticValues(String... values) {
         return (
                 sender,
-                context) -> values == null ? List.of() : List.of(values);
+                context
+        ) -> values == null ? List.of() : List.of(values);
     }
 
     static SuggestionProvider supplied(Supplier<? extends Collection<String>> supplier) {
         return (
                 sender,
-                context) -> {
+                context
+        ) -> {
             Collection<String> values = supplier.get();
             if (values == null || values.isEmpty()) return List.of();
             return List.copyOf(values);

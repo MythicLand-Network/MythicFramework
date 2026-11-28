@@ -70,11 +70,12 @@ public final class MaterialCatalog {
                 }
                 try {
                     entries.add(new MaterialEntry(
-                            columns[0],
-                            Integer.parseInt(columns[1]),
-                            Integer.parseInt(columns[2]),
-                            columns[3]
-                    ));
+                                    columns[0],
+                                    Integer.parseInt(columns[1]),
+                                    Integer.parseInt(columns[2]),
+                                    columns[3]
+                    )
+                    );
                 } catch (RuntimeException exception) {
                     throw new IOException("Invalid material catalog row at line " + lineNumber, exception);
                 }
@@ -133,7 +134,8 @@ public final class MaterialCatalog {
         if (normalized.isEmpty()) return entries;
         return entries.stream()
                 .filter(entry -> entry.materialName().toLowerCase(Locale.ROOT).contains(normalized)
-                        || entry.displayName().toLowerCase(Locale.ROOT).contains(normalized))
+                        || entry.displayName().toLowerCase(Locale.ROOT).contains(normalized)
+                )
                 .toList();
     }
 }

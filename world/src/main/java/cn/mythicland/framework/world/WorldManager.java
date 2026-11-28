@@ -57,7 +57,8 @@ public final class WorldManager implements AutoCloseable {
     }
 
     public void loadAdditionalWorlds() {
-        if (!this.prepared || this.loaded || this.closed) throw new IllegalStateException("Invalid world loading phase");
+        if (!this.prepared || this.loaded || this.closed)
+            throw new IllegalStateException("Invalid world loading phase");
         for (Map.Entry<String, World.Environment> restored : this.restoredWorlds.entrySet()) {
             World world = this.plugin.getServer().getWorld(restored.getKey());
             if (world == null) {
@@ -65,7 +66,9 @@ public final class WorldManager implements AutoCloseable {
             }
             if (world == null) throw new IllegalStateException("Cannot load restored world: " + restored.getKey());
             if (world.getEnvironment() != restored.getValue()) {
-                throw new IllegalStateException("Restored world environment differs from its snapshot: " + restored.getKey());
+                throw new IllegalStateException(
+                        "Restored world environment differs from its snapshot: " + restored.getKey()
+                );
             }
         }
         this.loaded = true;
@@ -84,24 +87,28 @@ public final class WorldManager implements AutoCloseable {
     }
 
     public CompletableFuture<Void> save(String name) {
-        if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("World snapshot must be captured on the server thread");
+        if (!Bukkit.isPrimaryThread())
+            throw new IllegalStateException("World snapshot must be captured on the server thread");
         if (!this.loaded || this.closed) throw new IllegalStateException("World manager is not running");
         World world = this.plugin.getServer().getWorld(name);
         if (world == null) throw new IllegalArgumentException("World is not loaded: " + name);
-        return this.saves.save(name, () -> {
-            flushChunkWrites();
-            world.save();
-            flushChunkWrites();
-            Path regionDirectory = regionDirectory(world.getWorldFolder().toPath(), world.getEnvironment());
-            Path capture;
-            try {
-                capture = this.store.capture(name, regionDirectory);
-            } catch (IOException exception) {
-                throw new IllegalStateException("Cannot capture world terrain: " + name, exception);
-            }
-            World.Environment environment = world.getEnvironment();
-            return () -> this.store.write(name, environment, capture);
-        });
+        return this.saves.save(
+                name,
+                () -> {
+                    flushChunkWrites();
+                    world.save();
+                    flushChunkWrites();
+                    Path regionDirectory = regionDirectory(world.getWorldFolder().toPath(), world.getEnvironment());
+                    Path capture;
+                    try {
+                        capture = this.store.capture(name, regionDirectory);
+                    } catch (IOException exception) {
+                        throw new IllegalStateException("Cannot capture world terrain: " + name, exception);
+                    }
+                    World.Environment environment = world.getEnvironment();
+                    return () -> this.store.write(name, environment, capture);
+                }
+        );
     }
 
     private static Path regionDirectory(Path worldDirectory, World.Environment environment) {

@@ -40,7 +40,8 @@ public final class FileTreeFingerprint {
             digest.update(root.relativize(path).toString().replace('\\', '/').getBytes(StandardCharsets.UTF_8));
             digest.update(Long.toString(Files.size(path)).getBytes(StandardCharsets.UTF_8));
             digest.update(Long.toString(Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toMillis())
-                    .getBytes(StandardCharsets.UTF_8));
+                    .getBytes(StandardCharsets.UTF_8)
+            );
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to fingerprint " + path, exception);
         }

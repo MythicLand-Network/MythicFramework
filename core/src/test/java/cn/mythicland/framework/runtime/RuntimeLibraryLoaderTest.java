@@ -127,12 +127,15 @@ final class RuntimeLibraryLoaderTest {
 
     private static HttpServer server(byte[] response, AtomicInteger requests) throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/example.jar", exchange -> {
-            requests.incrementAndGet();
-            exchange.sendResponseHeaders(200, response.length);
-            exchange.getResponseBody().write(response);
-            exchange.close();
-        });
+        server.createContext(
+                "/example.jar",
+                exchange -> {
+                    requests.incrementAndGet();
+                    exchange.sendResponseHeaders(200, response.length);
+                    exchange.getResponseBody().write(response);
+                    exchange.close();
+                }
+        );
         server.start();
         return server;
     }

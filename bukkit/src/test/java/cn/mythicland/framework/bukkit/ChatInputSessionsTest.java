@@ -27,16 +27,26 @@ class ChatInputSessionsTest {
         Object owner = new Object();
         AtomicInteger accepted = new AtomicInteger();
         AtomicInteger cleaned = new AtomicInteger();
-        sessions.begin(player, owner, (sender, text, cancel) -> {
-            accepted.incrementAndGet();
-            return ChatInputSessions.Result.FINISH;
-        }, () -> {
-            cleaned.incrementAndGet();
-            sessions.clear(player.getUniqueId(), owner);
-        });
+        sessions.begin(
+                player,
+                owner,
+                (sender, text, cancel) -> {
+                    accepted.incrementAndGet();
+                    return ChatInputSessions.Result.FINISH;
+                },
+                () -> {
+                    cleaned.incrementAndGet();
+                    sessions.clear(player.getUniqueId(), owner);
+                }
+        );
         sessions.onChat(chat(player, "old input"));
-        sessions.begin(player, owner, (sender, text, cancel) -> cancel
-                ? ChatInputSessions.Result.FINISH : ChatInputSessions.Result.RETRY, cleaned::incrementAndGet);
+        sessions.begin(
+                player,
+                owner,
+                (sender, text, cancel) -> cancel
+                        ? ChatInputSessions.Result.FINISH : ChatInputSessions.Result.RETRY,
+                cleaned::incrementAndGet
+        );
         callbacks.removeFirst().run();
         assertEquals(0, accepted.get());
         assertEquals(1, cleaned.get());
@@ -55,7 +65,14 @@ class ChatInputSessionsTest {
         ChatInputSessions sessions = new ChatInputSessions(scheduler);
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
-        sessions.begin(player, this, text -> false, (sender, text, cancel) -> ChatInputSessions.Result.FINISH, () -> {});
+        sessions.begin(
+                player,
+                this,
+                text -> false,
+                (sender, text, cancel) -> ChatInputSessions.Result.FINISH,
+                () -> {
+                }
+        );
         AsyncPlayerChatEvent normal = chat(player, "hello");
         sessions.onChat(normal);
         verify(normal, never()).setCancelled(true);
@@ -68,7 +85,11 @@ class ChatInputSessionsTest {
     @Test
     void tabCompletionBelongsToCurrentSessionAndStopsAfterCancellationReplacementAndClose() {
         TaskScheduler scheduler = mock(TaskScheduler.class);
-        doAnswer(call -> { call.<Runnable>getArgument(0).run(); return null; }).when(scheduler).executeSync(any());
+        doAnswer(call -> {
+                    call.<Runnable>getArgument(0).run();
+                    return null;
+                }
+        ).when(scheduler).executeSync(any());
         ChatInputSessions sessions = new ChatInputSessions(scheduler);
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
@@ -79,8 +100,15 @@ class ChatInputSessionsTest {
         List<String> offers = new ArrayList<>(List.of("Player"));
         when(event.getTabCompletions()).thenReturn(offers);
         Object owner = new Object();
-        sessions.begin(player, owner, text -> true, (sender, text, cancel) -> ChatInputSessions.Result.FINISH,
-                () -> {}, text -> List.of(text + "一", text + "二"));
+        sessions.begin(
+                player,
+                owner,
+                text -> true,
+                (sender, text, cancel) -> ChatInputSessions.Result.FINISH,
+                () -> {
+                },
+                text -> List.of(text + "一", text + "二")
+        );
         sessions.onTabComplete(event);
         assertEquals(List.of("附魔一", "附魔二"), offers);
         sessions.onChat(chat(player, "cancel"));
@@ -88,9 +116,22 @@ class ChatInputSessionsTest {
         offers.add("Player");
         sessions.onTabComplete(event);
         assertEquals(List.of("Player"), offers);
-        sessions.begin(player, owner, text -> true, (sender, text, cancel) -> ChatInputSessions.Result.RETRY,
-                () -> {}, text -> List.of("old"));
-        sessions.begin(player, new Object(), (sender, text, cancel) -> ChatInputSessions.Result.RETRY, () -> {});
+        sessions.begin(
+                player,
+                owner,
+                text -> true,
+                (sender, text, cancel) -> ChatInputSessions.Result.RETRY,
+                () -> {
+                },
+                text -> List.of("old")
+        );
+        sessions.begin(
+                player,
+                new Object(),
+                (sender, text, cancel) -> ChatInputSessions.Result.RETRY,
+                () -> {
+                }
+        );
         sessions.onTabComplete(event);
         assertEquals(List.of("Player"), offers);
         sessions.close();

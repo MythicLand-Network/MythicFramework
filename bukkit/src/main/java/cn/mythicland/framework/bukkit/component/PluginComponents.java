@@ -31,7 +31,11 @@ public final class PluginComponents {
     /**
      * Creates a plugin-scoped container and discovers components in the supplied package.
      */
-    public PluginComponents(JavaPlugin plugin, String basePackage, Consumer<ComponentContainer> bindings) {
+    public PluginComponents(
+            JavaPlugin plugin,
+            String basePackage,
+            Consumer<ComponentContainer> bindings
+    ) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(bindings, "bindings");
         String packageName = Objects.requireNonNull(basePackage, "basePackage").trim();
@@ -45,7 +49,8 @@ public final class PluginComponents {
         components.bind(PluginTaskScope.class, new PluginTaskScope(plugin));
         components.bind(PluginComponents.class, this);
         components.discover(plugin.getClass().getClassLoader(), packageName,
-                PluginComponents::isManaged, type -> type.isAnnotationPresent(DefaultImplementation.class));
+                PluginComponents::isManaged, type -> type.isAnnotationPresent(DefaultImplementation.class)
+        );
     }
 
     private static boolean isManaged(Class<?> type) {

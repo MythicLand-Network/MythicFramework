@@ -30,7 +30,12 @@ public final class BukkitRegistration implements AutoCloseable {
         this.addUndoAction(() -> HandlerList.unregisterAll(listener));
     }
 
-    public <T> void registerService(JavaPlugin plugin, Class<T> contract, T provider, ServicePriority priority) {
+    public <T> void registerService(
+            JavaPlugin plugin,
+            Class<T> contract,
+            T provider,
+            ServicePriority priority
+    ) {
         plugin.getServer().getServicesManager().register(contract, provider, plugin, priority);
         this.addUndoAction(() -> plugin.getServer().getServicesManager().unregister(contract, provider));
     }
@@ -41,9 +46,10 @@ public final class BukkitRegistration implements AutoCloseable {
         command.setExecutor(executor);
         command.setTabCompleter(completer);
         this.addUndoAction(() -> {
-            command.setExecutor(previousExecutor);
-            command.setTabCompleter(previousCompleter);
-        });
+                    command.setExecutor(previousExecutor);
+                    command.setTabCompleter(previousCompleter);
+                }
+        );
     }
 
     public void combine(BukkitRegistration registration) {

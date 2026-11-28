@@ -42,7 +42,9 @@ class GridPathfinderTest {
         Location diagonalStart = new Location(world, -3.1, 64, -3.1), diagonalGoal = new Location(world, -.3, 64, -.3);
         assertTrue(finder.canWalkDirectly(diagonalStart, diagonalGoal));
         when(world.getBlockTypeIdAt(0, 65, 0)).thenReturn(Material.STONE.getId());
-        assertFalse(finder.canWalkDirectly(diagonalStart, diagonalGoal), "Headroom is required at the diagonal endpoint");
+        assertFalse(finder.canWalkDirectly(diagonalStart, diagonalGoal),
+                "Headroom is required at the diagonal endpoint"
+        );
     }
 
     @Test
@@ -62,7 +64,8 @@ class GridPathfinderTest {
         when(world.getMaxHeight()).thenReturn(256);
         when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
         when(world.getBlockTypeIdAt(anyInt(), anyInt(), anyInt())).thenAnswer(call ->
-                call.<Integer>getArgument(1) < 64 ? Material.STONE.getId() : Material.AIR.getId());
+                call.<Integer>getArgument(1) < 64 ? Material.STONE.getId() : Material.AIR.getId()
+        );
         return world;
     }
 
@@ -72,9 +75,10 @@ class GridPathfinderTest {
         when(world.getMaxHeight()).thenReturn(256);
         when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
         when(world.getBlockTypeIdAt(anyInt(), anyInt(), anyInt())).thenAnswer(call -> {
-            int y = call.getArgument(1);
-            return y < 64 ? Material.STONE.getId() : y == 64 ? Material.CARPET.getId() : Material.AIR.getId();
-        });
+                    int y = call.getArgument(1);
+                    return y < 64 ? Material.STONE.getId() : y == 64 ? Material.CARPET.getId() : Material.AIR.getId();
+                }
+        );
         GridPathfinder finder = new GridPathfinder();
         Location start = new Location(world, .5, 64 + 1.0 / 16, .5);
         Location goal = new Location(world, 2.5, 64 + 1.0 / 16, .5);
@@ -96,7 +100,8 @@ class GridPathfinderTest {
         when(world.getMaxHeight()).thenReturn(256);
         when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
         when(world.getBlockTypeIdAt(anyInt(), anyInt(), anyInt())).thenAnswer(call ->
-                call.<Integer>getArgument(1) < 64 ? Material.STONE.getId() : Material.AIR.getId());
+                call.<Integer>getArgument(1) < 64 ? Material.STONE.getId() : Material.AIR.getId()
+        );
         GridPathfinder finder = new GridPathfinder();
         Location start = new Location(world, -.5, 64, -.5), goal = new Location(world, -5.5, 64, -5.5);
         assertEquals(5, finder.find(start, goal, 128, .6, (fx, fy, fz, tx, ty, tz) -> true).size());

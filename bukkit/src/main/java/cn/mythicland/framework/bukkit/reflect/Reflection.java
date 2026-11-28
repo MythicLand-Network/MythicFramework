@@ -84,7 +84,12 @@ public final class Reflection {
     }
 
     // Common method
-    private static <T> FieldAccessor<T> getField(Class<?> target, String name, Class<T> fieldType, int index) {
+    private static <T> FieldAccessor<T> getField(
+            Class<?> target,
+            String name,
+            Class<T> fieldType,
+            int index
+    ) {
         for (final Field field : target.getDeclaredFields()) {
             if ((name == null || field.getName().equals(name)) && fieldType.isAssignableFrom(field.getType())
                     && index-- <= 0) {
@@ -186,7 +191,8 @@ public final class Reflection {
 
                 return (
                         target,
-                        arguments) -> {
+                        arguments
+                ) -> {
                     try {
                         return method.invoke(target, arguments);
                     } catch (Exception e) {

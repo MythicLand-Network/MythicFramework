@@ -22,7 +22,9 @@ public final class ContentDocument {
     private final YamlConfiguration yaml = new YamlConfiguration();
     private Path destination;
 
-    /** Captures real files and validates duplicate entries before exposing the merged snapshot. */
+    /**
+     * Captures real files and validates duplicate entries before exposing the merged snapshot.
+     */
     public ContentDocument(List<Path> files, Path destination) {
         this.destination = destination;
         try {
@@ -46,38 +48,58 @@ public final class ContentDocument {
                     for (String id : section.getKeys(false)) {
                         String path = key + "." + id;
                         Path previous = owners.putIfAbsent(path, file);
-                        if (previous != null) throw new IllegalArgumentException("Duplicate document entry " + path + ": " + previous + " and " + file);
+                        if (previous != null) throw new IllegalArgumentException(
+                                "Duplicate document entry " + path + ": " + previous + " and " + file
+                        );
                         copy(source, yaml, path);
                     }
                 }
             }
-        } catch (IOException exception) { throw new UncheckedIOException(exception); }
+        } catch (IOException exception) {throw new UncheckedIOException(exception);}
     }
 
-    /** @return the editable merged snapshot, owned by this document */
-    public YamlConfiguration yaml() { return yaml; }
+    /**
+     * @return the editable merged snapshot, owned by this document
+     */
+    public YamlConfiguration yaml() {
+        return yaml;
+    }
 
-    /** Selects the already validated destination for newly inserted records. */
-    public void destination(Path path) { destination = Objects.requireNonNull(path); }
+    /**
+     * Selects the already validated destination for newly inserted records.
+     */
+    public void destination(Path path) {
+        destination = Objects.requireNonNull(path);
+    }
 
-    /** @return the source of an existing entry, or the insertion destination */
-    public Path source(String path) { return owners.getOrDefault(path, destination); }
+    /**
+     * @return the source of an existing entry, or the insertion destination
+     */
+    public Path source(String path) {
+        return owners.getOrDefault(path, destination);
+    }
 
-    /** Persists changed sources atomically after optimistic concurrency checks. */
+    /**
+     * Persists changed sources atomically after optimistic concurrency checks.
+     */
     public void save() {
         try (var transaction = new AtomicYamlTransaction()) {
             write(transaction);
             transaction.commit();
-        } catch (IOException exception) { throw new UncheckedIOException(exception); }
+        } catch (IOException exception) {throw new UncheckedIOException(exception);}
     }
 
-    /** Appends changed files to a caller-owned transaction; the caller must commit or close it. */
+    /**
+     * Appends changed files to a caller-owned transaction; the caller must commit or close it.
+     */
     public void write(AtomicYamlTransaction transaction) throws IOException {
         Map<Path, YamlConfiguration> next = new LinkedHashMap<>();
         for (var entry : sources.entrySet()) {
             YamlConfiguration clone = new YamlConfiguration();
-            try { clone.loadFromString(entry.getValue().saveToString()); }
-            catch (org.bukkit.configuration.InvalidConfigurationException exception) { throw new IOException(exception); }
+            try {clone.loadFromString(entry.getValue().saveToString());} catch (
+                    org.bukkit.configuration.InvalidConfigurationException exception) {
+                throw new IOException(exception);
+            }
             next.put(entry.getKey(), clone);
         }
         Set<String> paths = new LinkedHashSet<>(owners.keySet());

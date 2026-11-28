@@ -52,7 +52,9 @@ public final class InventoryTransfer {
         return remaining;
     }
 
-    /** Inserts into an inclusive slot range, merging existing stacks before filling empty slots. */
+    /**
+     * Inserts into an inclusive slot range, merging existing stacks before filling empty slots.
+     */
     public static int insert(
             Inventory target,
             ItemStack source,

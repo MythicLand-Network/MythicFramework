@@ -31,9 +31,15 @@ class IdentityLruCacheTest {
         IdentityLruCache<Object, Integer> cache = new IdentityLruCache<>(2);
         Object key = new Object();
         AtomicInteger calls = new AtomicInteger();
-        assertThrows(IllegalStateException.class, () -> cache.computeIfAbsent(key, ignored -> {
-            throw new IllegalStateException("cannot load");
-        }));
+        assertThrows(
+                IllegalStateException.class,
+                () -> cache.computeIfAbsent(
+                        key,
+                        ignored -> {
+                            throw new IllegalStateException("cannot load");
+                        }
+                )
+        );
         assertNull(cache.computeIfAbsent(key, ignored -> null));
         assertEquals(1, cache.computeIfAbsent(key, ignored -> calls.incrementAndGet()));
         assertEquals(1, cache.computeIfAbsent(key, ignored -> calls.incrementAndGet()));
@@ -53,9 +59,13 @@ class IdentityLruCacheTest {
         cache.put(first, null);
         assertEquals(1, cache.get(first));
         assertNull(cache.get(null));
-        assertNull(cache.computeIfAbsent(null, ignored -> {
-            throw new AssertionError("null keys must not invoke the loader");
-        }));
+        assertNull(cache.computeIfAbsent(
+                null,
+                ignored -> {
+                            throw new AssertionError("null keys must not invoke the loader");
+                        }
+        )
+        );
 
         cache.put(second, 2);
         assertNull(cache.get(first));

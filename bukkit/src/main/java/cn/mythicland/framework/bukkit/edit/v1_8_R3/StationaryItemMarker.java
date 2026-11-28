@@ -22,7 +22,8 @@ public final class StationaryItemMarker extends EntityItem {
     public static Item spawn(Location position, ItemStack stack) {
         World world = ((CraftWorld) position.getWorld()).getHandle();
         StationaryItemMarker marker = new StationaryItemMarker(world, position, stack);
-        if (!world.addEntity(marker, SpawnReason.CUSTOM)) throw new IllegalStateException("Item marker spawn was rejected");
+        if (!world.addEntity(marker, SpawnReason.CUSTOM))
+            throw new IllegalStateException("Item marker spawn was rejected");
         return (Item) marker.getBukkitEntity();
     }
 

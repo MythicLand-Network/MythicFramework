@@ -57,12 +57,13 @@ public final class ItemEditors {
 
     public static ItemEditor appendLore(List<String> loreLines) {
         return meta(meta -> {
-            List<String> lore = meta.hasLore() && meta.getLore() != null
-                    ? new ArrayList<>(meta.getLore())
-                    : new ArrayList<>();
-            lore.addAll(colorLines(loreLines));
-            meta.setLore(lore);
-        });
+                    List<String> lore = meta.hasLore() && meta.getLore() != null
+                            ? new ArrayList<>(meta.getLore())
+                            : new ArrayList<>();
+                    lore.addAll(colorLines(loreLines));
+                    meta.setLore(lore);
+                }
+        );
     }
 
     public static ItemEditor appendLore(String... loreLines) {
@@ -110,7 +111,8 @@ public final class ItemEditors {
         ItemMeta meta = itemStack.getItemMeta();
         if (meta == null) {
             throw new IllegalStateException(
-                    "Cannot read unbreakable state from item without meta: " + itemStack.getType());
+                    "Cannot read unbreakable state from item without meta: " + itemStack.getType()
+            );
         }
         Boolean modernState = readModernUnbreakable(meta);
         if (modernState != null) return modernState;
@@ -168,10 +170,11 @@ public final class ItemEditors {
         Objects.requireNonNull(metaType, "metaType");
         Objects.requireNonNull(editor, "editor");
         return meta(meta -> {
-            if (metaType.isInstance(meta)) {
-                editor.accept(metaType.cast(meta));
-            }
-        });
+                    if (metaType.isInstance(meta)) {
+                        editor.accept(metaType.cast(meta));
+                    }
+                }
+        );
     }
 
     private static List<String> colorLines(List<String> loreLines) {
@@ -227,7 +230,9 @@ public final class ItemEditors {
 
     private static boolean legacyItemNbtAvailable() {
         try {
-            Class.forName("org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack", false, ItemEditors.class.getClassLoader());
+            Class.forName("org.bukkit.craftbukkit.v1_8_R3.inventory.CraftItemStack", false,
+                    ItemEditors.class.getClassLoader()
+            );
             return true;
         } catch (ClassNotFoundException | LinkageError ignored) {
             return false;

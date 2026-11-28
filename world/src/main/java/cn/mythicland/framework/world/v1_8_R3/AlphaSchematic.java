@@ -22,7 +22,8 @@ public final class AlphaSchematic {
     private final Map<Integer, NBTTagCompound> tiles;
 
     private AlphaSchematic(NBTTagCompound root) {
-        if (!root.getString("Materials").equals("Alpha")) throw new IllegalArgumentException("Expected Alpha schematic");
+        if (!root.getString("Materials").equals("Alpha"))
+            throw new IllegalArgumentException("Expected Alpha schematic");
         if (!root.hasKeyOfType("Width", 2) || !root.hasKeyOfType("Height", 2) || !root.hasKeyOfType("Length", 2)
                 || !root.hasKeyOfType("Blocks", 7) || !root.hasKeyOfType("Data", 7)
                 || root.hasKey("AddBlocks") && !root.hasKeyOfType("AddBlocks", 7))
@@ -31,7 +32,8 @@ public final class AlphaSchematic {
         this.height = root.getShort("Height");
         this.length = root.getShort("Length");
         if (this.width <= 0 || this.width > 256 || this.length <= 0 || this.length > 256
-                || this.height <= 0 || this.height > 256) throw new IllegalArgumentException("Invalid schematic dimensions");
+                || this.height <= 0 || this.height > 256)
+            throw new IllegalArgumentException("Invalid schematic dimensions");
         int volume = Math.multiplyExact(Math.multiplyExact(this.width, this.height), this.length);
         this.blocks = root.getByteArray("Blocks");
         this.data = root.getByteArray("Data");
@@ -52,7 +54,8 @@ public final class AlphaSchematic {
         for (int i = 0; i < list.size(); i++) {
             NBTTagCompound tile = (NBTTagCompound) list.get(i).clone();
             if (!tile.hasKeyOfType("x", 3) || !tile.hasKeyOfType("y", 3) || !tile.hasKeyOfType("z", 3)
-                    || !tile.hasKeyOfType("id", 8)) throw new IllegalArgumentException("Invalid schematic tile entity fields");
+                    || !tile.hasKeyOfType("id", 8))
+                throw new IllegalArgumentException("Invalid schematic tile entity fields");
             int x = tile.getInt("x");
             int y = tile.getInt("y");
             int z = tile.getInt("z");
@@ -84,10 +87,12 @@ public final class AlphaSchematic {
                 default -> original;
             };
             String expected = tileId(id(index(x, y, z)));
-            if (!id.equals(expected)) throw new IllegalArgumentException("Schematic tile entity does not match its block: " + original);
+            if (!id.equals(expected))
+                throw new IllegalArgumentException("Schematic tile entity does not match its block: " + original);
             tile.setString("id", id);
             int index = index(x, y, z);
-            if (tiles.put(index, tile) != null) throw new IllegalArgumentException("Duplicate schematic tile entity at " + index);
+            if (tiles.put(index, tile) != null)
+                throw new IllegalArgumentException("Duplicate schematic tile entity at " + index);
         }
         this.tiles = Map.copyOf(tiles);
     }
@@ -125,9 +130,17 @@ public final class AlphaSchematic {
         }
     }
 
-    public int width() { return this.width; }
-    public int height() { return this.height; }
-    public int length() { return this.length; }
+    public int width() {
+        return this.width;
+    }
+
+    public int height() {
+        return this.height;
+    }
+
+    public int length() {
+        return this.length;
+    }
 
     public int index(int x, int y, int z) {
         return (y * this.length + z) * this.width + x;

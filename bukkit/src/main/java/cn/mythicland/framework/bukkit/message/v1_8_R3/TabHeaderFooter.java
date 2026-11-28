@@ -15,7 +15,8 @@ public final class TabHeaderFooter {
 
     public static void send(Player player, String header, String footer) {
         PacketPlayOutPlayerListHeaderFooter packet = new PacketPlayOutPlayerListHeaderFooter(
-                new ChatComponentText(header == null ? "" : header));
+                new ChatComponentText(header == null ? "" : header)
+        );
         try {
             FOOTER.set(packet, new ChatComponentText(footer == null ? "" : footer));
         } catch (IllegalAccessException exception) {

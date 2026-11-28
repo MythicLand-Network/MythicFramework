@@ -101,8 +101,12 @@ public final class ConfigSupport {
      * @return immutable bound configuration model
      */
     public static <T> T bind(FileConfiguration configuration, Class<T> type) {
-        return bind(configuration, type, ignored -> {
-        });
+        return bind(
+                configuration,
+                type,
+                ignored -> {
+                }
+        );
     }
 
     static FileConfiguration attachDefaults(FileConfiguration configuration) {

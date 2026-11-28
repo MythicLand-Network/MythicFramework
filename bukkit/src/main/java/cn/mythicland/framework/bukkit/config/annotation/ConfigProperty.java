@@ -15,11 +15,18 @@ public @interface ConfigProperty {
      */
     String path();
 
-    /** Record binding default and validation options; field binding remains strict. */
+    /**
+     * Record binding default and validation options; field binding remains strict.
+     */
     String defaultValue() default "";
+
     boolean nonBlank() default false;
+
     boolean trim() default true;
+
     boolean positive() default false;
+
     boolean nonNegative() default false;
+
     boolean finite() default true;
 }

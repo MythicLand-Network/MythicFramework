@@ -232,9 +232,16 @@ public final class PacketContainerAnimationService implements ContainerAnimation
         }
     }
 
-    private record NmsBridge(Method craftWorldGetHandle, Method worldGetType, Method blockDataGetBlock,
-                             Constructor<?> blockPositionConstructor, Constructor<?> packetConstructor,
-                             Method craftPlayerGetHandle, Field playerConnectionField, Method sendPacket) {
+    private record NmsBridge(
+            Method craftWorldGetHandle,
+            Method worldGetType,
+            Method blockDataGetBlock,
+            Constructor<?> blockPositionConstructor,
+            Constructor<?> packetConstructor,
+            Method craftPlayerGetHandle,
+            Field playerConnectionField,
+            Method sendPacket
+    ) {
 
         private static NmsBridge create() {
             try {

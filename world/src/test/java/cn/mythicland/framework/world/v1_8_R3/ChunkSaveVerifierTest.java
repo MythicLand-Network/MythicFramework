@@ -15,7 +15,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class ChunkSaveVerifierTest {
-    @TempDir Path world;
+    @TempDir
+    Path world;
 
     @Test
     void diskNibblesShouldMatchInternalSectionIdsAtNegativeChunkCoordinates() throws Exception {
@@ -51,6 +52,8 @@ class ChunkSaveVerifierTest {
         }
 
         assertDoesNotThrow(() -> ChunkSaveVerifier.verify(this.world, -1, -1,
-                Map.of(0, expected), Map.of(), Runnable::run).join());
+                        Map.of(0, expected), Map.of(), Runnable::run
+        ).join()
+        );
     }
 }

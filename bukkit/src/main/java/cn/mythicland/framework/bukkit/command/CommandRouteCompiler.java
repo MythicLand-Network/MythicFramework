@@ -205,7 +205,12 @@ public final class CommandRouteCompiler {
         }
     }
 
-    private CommandNode compileRoute(AbstractCommand command, Method method, CommandRoute route, String[] path) {
+    private CommandNode compileRoute(
+            AbstractCommand command,
+            Method method,
+            CommandRoute route,
+            String[] path
+    ) {
         int leafIndex = path.length - 1;
         CommandNode.Builder leaf = CommandNode.literal(path[leafIndex]);
         this.applyMetadata(leaf, route);

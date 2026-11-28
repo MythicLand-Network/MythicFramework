@@ -66,18 +66,19 @@ class ChunkBlockWriterTest {
         ChunkRegionLoader loader = new ChunkRegionLoader(this.directory.toFile());
         Path regionPath = Files.createDirectories(this.directory.resolve("region")).resolve("r.0.0.mca");
         doNothing().doAnswer(call -> {
-            NBTTagCompound level = new NBTTagCompound();
-            serialize.invoke(loader, chunk, world, level);
-            NBTTagCompound root = new NBTTagCompound();
-            root.set("Level", level);
-            RegionFile region = new RegionFile(regionPath.toFile());
-            try (DataOutputStream output = region.b(8, 1)) {
-                NBTCompressedStreamTools.a(root, (java.io.DataOutput) output);
-            } finally {
-                region.c();
-            }
-            return null;
-        }).when(world.chunkProviderServer).saveChunk(chunk);
+                    NBTTagCompound level = new NBTTagCompound();
+                    serialize.invoke(loader, chunk, world, level);
+                    NBTTagCompound root = new NBTTagCompound();
+                    root.set("Level", level);
+                    RegionFile region = new RegionFile(regionPath.toFile());
+                    try (DataOutputStream output = region.b(8, 1)) {
+                        NBTCompressedStreamTools.a(root, (java.io.DataOutput) output);
+                    } finally {
+                        region.c();
+                    }
+                    return null;
+                }
+        ).when(world.chunkProviderServer).saveChunk(chunk);
         LinkedBlockingQueue<Runnable> polls = new LinkedBlockingQueue<>();
         var saved = writer.saveVerified(polls::add);
         polls.remove().run();

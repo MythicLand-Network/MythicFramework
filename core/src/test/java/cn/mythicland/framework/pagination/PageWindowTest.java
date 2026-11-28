@@ -15,6 +15,7 @@ class PageWindowTest {
         assertTrue(window.hasPrevious());
         assertFalse(window.hasNext());
     }
+
     @Test
     void clampsEmptyAndOutOfRangePages() {
         PageWindow empty = PageWindow.of(0, 45, 8);

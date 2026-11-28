@@ -13,7 +13,8 @@ class ExternalComponentsTest {
     void discoversExternalRolesAndInjectsTheSelectedSingleton() {
         ComponentContainer components = new ComponentContainer();
         components.discover(getClass().getClassLoader(), getClass().getPackageName(),
-                type -> type.isAnnotationPresent(Component.class), type -> type.isAnnotationPresent(Preferred.class));
+                type -> type.isAnnotationPresent(Component.class), type -> type.isAnnotationPresent(Preferred.class)
+        );
 
         components.resolve(OtherService.class);
         Consumer consumer = components.resolve(Consumer.class);
@@ -26,38 +27,54 @@ class ExternalComponentsTest {
     void reportsCyclesInExternallyDiscoveredComponents() {
         ComponentContainer components = new ComponentContainer();
         components.discover(getClass().getClassLoader(), getClass().getPackageName(),
-                type -> type.isAnnotationPresent(Component.class), type -> type.isAnnotationPresent(Preferred.class));
+                type -> type.isAnnotationPresent(Component.class), type -> type.isAnnotationPresent(Preferred.class)
+        );
 
         assertThrows(IllegalStateException.class, () -> components.resolve(CycleA.class));
     }
 
     @Retention(RetentionPolicy.RUNTIME)
-    @interface Component {}
+    @interface Component {
+    }
 
     @Retention(RetentionPolicy.RUNTIME)
-    @interface Preferred {}
+    @interface Preferred {
+    }
 
-    interface Service {}
+    interface Service {
+    }
 
     @Component
-    abstract static class AbstractService implements Service {}
+    abstract static class AbstractService implements Service {
+    }
 
     @Component
     static class Consumer {
         final Service service;
-        Consumer(Service service) { this.service = service; }
+
+        Consumer(Service service) {
+            this.service = service;
+        }
     }
 
     @Component
-    static class OtherService implements Service {}
+    static class OtherService implements Service {
+    }
 
     @Component
     @Preferred
-    static class PreferredService implements Service {}
+    static class PreferredService implements Service {
+    }
 
     @Component
-    static class CycleA { CycleA(CycleB dependency) {} }
+    static class CycleA {
+        CycleA(CycleB dependency) {
+        }
+    }
 
     @Component
-    static class CycleB { CycleB(CycleA dependency) {} }
+    static class CycleB {
+        CycleB(CycleA dependency) {
+        }
+    }
 }

@@ -37,8 +37,9 @@ public final class StartupJoinGate implements Listener, AutoCloseable {
         this.waitingMessage = TextValidation.requireText(waitingMessage, "waitingMessage");
         owner.getServer().getPluginManager().registerEvents(this, owner);
         readiness.whenComplete((ignored, failure) -> {
-            if (failure == null) state.compareAndSet(State.WAITING, State.READY);
-        });
+                    if (failure == null) state.compareAndSet(State.WAITING, State.READY);
+                }
+        );
     }
 
     /**

@@ -9,7 +9,12 @@ public record StoredPlayerData<P, I>(
         long inventoryVersion,
         boolean profileExists
 ) {
-    public StoredPlayerData(UUID uniqueId, P profileData, I inventoryData, long inventoryVersion) {
+    public StoredPlayerData(
+            UUID uniqueId,
+            P profileData,
+            I inventoryData,
+            long inventoryVersion
+    ) {
         this(uniqueId, profileData, inventoryData, inventoryVersion, true);
     }
 }

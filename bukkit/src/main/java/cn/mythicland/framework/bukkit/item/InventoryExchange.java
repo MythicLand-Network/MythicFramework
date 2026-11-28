@@ -82,10 +82,11 @@ public final class InventoryExchange {
 
     private static List<ItemStack> scale(List<ItemStack> items, int count) {
         return items.stream().map(item -> {
-            ItemStack scaled = item.clone();
-            scaled.setAmount(item.getAmount() * count);
-            return scaled;
-        }).toList();
+                    ItemStack scaled = item.clone();
+                    scaled.setAmount(item.getAmount() * count);
+                    return scaled;
+                }
+        ).toList();
     }
 
     /**

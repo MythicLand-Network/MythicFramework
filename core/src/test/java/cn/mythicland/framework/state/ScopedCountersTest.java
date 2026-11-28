@@ -35,9 +35,12 @@ class ScopedCountersTest {
         counters.record("player", "charge", "target");
         counters.record("other", "combo", "target");
         Map<String, Integer> snapshot = new HashMap<>();
-        counters.forEach("player", (key, target, count) -> {
-            if (target == null) snapshot.put(key, count);
-        });
+        counters.forEach(
+                "player",
+                (key, target, count) -> {
+                    if (target == null) snapshot.put(key, count);
+                }
+        );
         assertEquals(Map.of("combo", 4), snapshot);
 
         counters.clear("player", "combo", "target");

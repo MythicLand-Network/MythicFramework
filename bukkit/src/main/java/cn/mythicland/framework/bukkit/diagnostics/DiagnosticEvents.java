@@ -78,7 +78,8 @@ final class DiagnosticEvents implements AutoCloseable {
                 if (!options.event(type.getSimpleName())) continue;
                 for (EventPriority priority : new EventPriority[]{EventPriority.LOWEST, EventPriority.MONITOR}) {
                     Bukkit.getPluginManager().registerEvent(type, this.boundary, priority,
-                            (listener, event) -> this.captureBoundary(event, priority), owner, false);
+                            (listener, event) -> this.captureBoundary(event, priority), owner, false
+                    );
                 }
             }
             this.refresh();
@@ -99,7 +100,9 @@ final class DiagnosticEvents implements AutoCloseable {
                 Binding old = this.bindings.get(registration);
                 if (old != null) {
                     if (this.executor.get(registration) != old.wrapper()) {
-                        throw new IllegalStateException("Diagnostic listener executor replaced: " + registration.getPlugin().getName());
+                        throw new IllegalStateException(
+                                "Diagnostic listener executor replaced: " + registration.getPlugin().getName()
+                        );
                     }
                     continue;
                 }
@@ -113,8 +116,14 @@ final class DiagnosticEvents implements AutoCloseable {
         }
     }
 
-    private void execute(RegisteredListener registration, EventExecutor original, Listener listener, Event event) throws EventException {
-        if (this.closed || !this.recorder.isRecording() || event.isAsynchronous() || !this.options.event(event.getClass().getSimpleName())) {
+    private void execute(
+            RegisteredListener registration,
+            EventExecutor original,
+            Listener listener,
+            Event event
+    ) throws EventException {
+        if (this.closed || !this.recorder.isRecording() || event.isAsynchronous() ||
+                !this.options.event(event.getClass().getSimpleName())) {
             original.execute(listener, event);
             return;
         }
@@ -143,8 +152,12 @@ final class DiagnosticEvents implements AutoCloseable {
             }
             before = DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT));
             if (!before.equals(state.last)) {
-                this.recorder.record("event.state", Map.of("eventId", state.id, "phase", "before", "state", before,
-                        "packetId", this.packetId.getAsLong(), "parentId", previousParent));
+                this.recorder.record(
+                        "event.state",
+                        Map.of("eventId", state.id, "phase", "before", "state", before,
+                                "packetId", this.packetId.getAsLong(), "parentId", previousParent
+                        )
+                );
                 state.last = before;
             }
             invocation = this.recorder.nextId();
@@ -175,10 +188,15 @@ final class DiagnosticEvents implements AutoCloseable {
             throw failure;
         } finally {
             try {
-                Map<String, Object> after = DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT));
+                Map<String, Object> after =
+                        DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT));
                 if (!after.equals(before)) {
-                    this.recorder.record("event.state", Map.of("eventId", state.id, "phase", "after", "state", after,
-                            "invocationId", invocation, "packetId", this.packetId.getAsLong()));
+                    this.recorder.record(
+                            "event.state",
+                            Map.of("eventId", state.id, "phase", "after", "state", after,
+                                    "invocationId", invocation, "packetId", this.packetId.getAsLong()
+                            )
+                    );
                 }
                 state.last = after;
                 Map<String, Object> exit = new LinkedHashMap<>();
@@ -202,10 +220,15 @@ final class DiagnosticEvents implements AutoCloseable {
                 || event.isAsynchronous() || !this.options.event(event.getClass().getSimpleName())) return;
         try {
             if (!DiagnosticSnapshot.containsPlayer(event, this.watched)) return;
-            this.recorder.record("event.state", Map.of(
-                    "eventId", this.ids.id(event), "phase", priority.name(),
-                    "state", DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT)),
-                    "packetId", this.packetId.getAsLong(), "damageId", this.damageId.getAsLong()));
+            this.recorder.record(
+                    "event.state",
+                    Map.of(
+                            "eventId", this.ids.id(event), "phase", priority.name(),
+                            "state",
+                            DiagnosticSnapshot.event(event, this.options.includes(DiagnosticOptions.Detail.NBT)),
+                            "packetId", this.packetId.getAsLong(), "damageId", this.damageId.getAsLong()
+                    )
+            );
         } catch (RuntimeException failure) {
             this.recorder.fail("event.boundary", failure);
         }

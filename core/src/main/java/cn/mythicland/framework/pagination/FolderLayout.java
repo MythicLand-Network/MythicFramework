@@ -8,7 +8,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
-/** Immutable ordered entries with expandable folders; expansion state belongs to each viewer. */
+/**
+ * Immutable ordered entries with expandable folders; expansion state belongs to each viewer.
+ */
 public record FolderLayout(List<Entry> entries) {
     public FolderLayout {
         Set<String> ids = new HashSet<>();
@@ -21,7 +23,9 @@ public record FolderLayout(List<Entry> entries) {
         entries = entries.stream().sorted(Comparator.comparingInt(Entry::order).thenComparing(Entry::id)).toList();
     }
 
-    /** Flattens available members for paging, keeping each expanded folder in its configured position. */
+    /**
+     * Flattens available members for paging, keeping each expanded folder in its configured position.
+     */
     public List<Row> rows(Set<String> expanded, Predicate<String> available) {
         List<Row> result = new ArrayList<>();
         for (Entry entry : entries) {
@@ -35,18 +39,31 @@ public record FolderLayout(List<Entry> entries) {
         return List.copyOf(result);
     }
 
-    /** A single entry or an ordered folder. Folder size is independent of inventory stack limits. */
-    public record Entry(String id, int order, boolean folder, List<String> members) {
+    /**
+     * A single entry or an ordered folder. Folder size is independent of inventory stack limits.
+     */
+    public record Entry(
+            String id,
+            int order,
+            boolean folder,
+            List<String> members
+    ) {
         public Entry {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("Library entry ID is required");
             members = List.copyOf(Objects.requireNonNull(members, "members"));
-            if (members.isEmpty() || (!folder && members.size() != 1)) throw new IllegalArgumentException("Invalid library member count: " + id);
-            if (members.stream().anyMatch(String::isBlank)) throw new IllegalArgumentException("Blank library member: " + id);
+            if (members.isEmpty() || (!folder && members.size() != 1))
+                throw new IllegalArgumentException("Invalid library member count: " + id);
+            if (members.stream().anyMatch(String::isBlank))
+                throw new IllegalArgumentException("Blank library member: " + id);
         }
     }
 
-    /** A rendered entry; folderId is null for entries that cannot be expanded. */
+    /**
+     * A rendered entry; folderId is null for entries that cannot be expanded.
+     */
     public record Row(String entryId, String folderId, int count) {
-        public int iconAmount() { return Math.min(count, 64); }
+        public int iconAmount() {
+            return Math.min(count, 64);
+        }
     }
 }

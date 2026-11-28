@@ -56,11 +56,20 @@ class BlockEditSessionsTest {
         when(block.getLocation()).thenReturn(location);
         AtomicInteger selected = new AtomicInteger();
         assertTrue(sessions.claim(id, this));
-        sessions.route(id, this, sender -> true, (sender, point) -> {
-            selected.incrementAndGet();
-            points.put(point, point, point, Material.BED);
-        }, sender -> points.undo(), true, points::close);
-        PlayerInteractEvent selection = new PlayerInteractEvent(player, Action.LEFT_CLICK_BLOCK, null, block, BlockFace.UP);
+        sessions.route(
+                id,
+                this,
+                sender -> true,
+                (sender, point) -> {
+                    selected.incrementAndGet();
+                    points.put(point, point, point, Material.BED);
+                },
+                sender -> points.undo(),
+                true,
+                points::close
+        );
+        PlayerInteractEvent selection =
+                new PlayerInteractEvent(player, Action.LEFT_CLICK_BLOCK, null, block, BlockFace.UP);
         selection.setCancelled(true);
         sessions.onInteract(selection);
         assertTrue(selection.isCancelled());

@@ -30,7 +30,8 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
             Consumer<Runnable> mainThreadExecutor
     ) {
         this(logger, ioExecutor, repository, inventoryAdapter, profileAdapter, loadFailureHandler,
-                (player, work) -> mainThreadExecutor.accept(work));
+                (player, work) -> mainThreadExecutor.accept(work)
+        );
     }
 
     public SimpleStoredPlayerLoadService(
@@ -81,21 +82,24 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
         return CompletableFuture.supplyAsync(
                         () -> this.loadSnapshot(playerUniqueId, retained),
                         this.ioExecutor
-                )
+        )
                 .handle((loadedData, throwable) -> {
-                    if (throwable != null || loadedData == null) {
-                        Throwable cause = throwable == null
-                                ? new IllegalStateException("Loaded player state is null for " + playerUniqueId)
-                                : throwable;
-                        this.logger.log(
-                                Level.SEVERE,
-                                "Failed to load player data for " + player.getName(),
-                                cause
-                        );
-                        return this.disconnectOnMain(playerUniqueId, player, cache, cause);
-                    }
-                    return this.applyLoadedDataOnMain(playerUniqueId, player, loadedData.data(), loadedData.inventory(), cache, retained);
-                })
+                            if (throwable != null || loadedData == null) {
+                                Throwable cause = throwable == null
+                                        ? new IllegalStateException("Loaded player state is null for " + playerUniqueId)
+                                        : throwable;
+                                this.logger.log(
+                                        Level.SEVERE,
+                                        "Failed to load player data for " + player.getName(),
+                                        cause
+                                );
+                                return this.disconnectOnMain(playerUniqueId, player, cache, cause);
+                            }
+                            return this.applyLoadedDataOnMain(playerUniqueId, player, loadedData.data(), loadedData.inventory(),
+                                    cache, retained
+                            );
+                        }
+                )
                 .thenCompose(completion -> completion);
     }
 
@@ -118,40 +122,48 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
     ) {
         CompletableFuture<StoredPlayerData<P, I>> completion = new CompletableFuture<>();
         try {
-            this.mainThreadExecutor.accept(fallbackPlayer, new Runnable() {
-                @Override
-                public void run() {
-                    if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
-                        completion.complete(loadedData);
-                        return;
-                    }
-                    boolean rescheduled = false;
-                    StoredPlayerSession<P, I> installed = null;
-                    try {
-                        Player player = SimpleStoredPlayerLoadService.this.resolveOnlinePlayer(playerUniqueId, fallbackPlayer);
-                        if (player == null || !player.isOnline()) {
-                            completion.complete(loadedData);
-                            return;
+            this.mainThreadExecutor.accept(
+                    fallbackPlayer,
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
+                                completion.complete(loadedData);
+                                return;
+                            }
+                            boolean rescheduled = false;
+                            StoredPlayerSession<P, I> installed = null;
+                            try {
+                                Player player =
+                                        SimpleStoredPlayerLoadService.this.resolveOnlinePlayer(playerUniqueId,
+                                                fallbackPlayer
+                                        );
+                                if (player == null || !player.isOnline()) {
+                                    completion.complete(loadedData);
+                                    return;
+                                }
+                                if (!inventory.advance()) {
+                                    SimpleStoredPlayerLoadService.this.mainThreadExecutor.accept(fallbackPlayer, this);
+                                    rescheduled = true;
+                                    return;
+                                }
+                                installed = retained != null ? retained
+                                        : new StoredPlayerSession<>(loadedData,
+                                        SimpleStoredPlayerLoadService.this.profileAdapter
+                                        );
+                                cache.putSession(playerUniqueId, installed);
+                                inventory.apply(player);
+                                completion.complete(loadedData);
+                            } catch (Throwable throwable) {
+                                if (installed != null && cache.findSession(playerUniqueId) == installed)
+                                    cache.removeSession(playerUniqueId);
+                                completion.completeExceptionally(throwable);
+                            } finally {
+                                if (!rescheduled) cache.finishLoading(playerUniqueId, fallbackPlayer);
+                            }
                         }
-                        if (!inventory.advance()) {
-                            SimpleStoredPlayerLoadService.this.mainThreadExecutor.accept(fallbackPlayer, this);
-                            rescheduled = true;
-                            return;
-                        }
-                        installed = retained != null ? retained
-                                : new StoredPlayerSession<>(loadedData, SimpleStoredPlayerLoadService.this.profileAdapter);
-                        cache.putSession(playerUniqueId, installed);
-                        inventory.apply(player);
-                        completion.complete(loadedData);
-                    } catch (Throwable throwable) {
-                        if (installed != null && cache.findSession(playerUniqueId) == installed)
-                            cache.removeSession(playerUniqueId);
-                        completion.completeExceptionally(throwable);
-                    } finally {
-                        if (!rescheduled) cache.finishLoading(playerUniqueId, fallbackPlayer);
                     }
-                }
-            });
+            );
         } catch (Throwable throwable) {
             cache.finishLoading(playerUniqueId, fallbackPlayer);
             completion.completeExceptionally(throwable);
@@ -167,24 +179,27 @@ public final class SimpleStoredPlayerLoadService<P, I> implements StoredPlayerLo
     ) {
         CompletableFuture<StoredPlayerData<P, I>> completion = new CompletableFuture<>();
         try {
-            this.mainThreadExecutor.accept(fallbackPlayer, () -> {
-                if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
-                    completion.completeExceptionally(cause);
-                    return;
-                }
-                try {
-                    Player player = this.resolveOnlinePlayer(playerUniqueId, fallbackPlayer);
-                    if (player != null && player.isOnline()) {
-                        this.loadFailureHandler.accept(player);
+            this.mainThreadExecutor.accept(
+                    fallbackPlayer,
+                    () -> {
+                        if (!cache.isCurrentLoading(playerUniqueId, fallbackPlayer)) {
+                            completion.completeExceptionally(cause);
+                            return;
+                        }
+                        try {
+                            Player player = this.resolveOnlinePlayer(playerUniqueId, fallbackPlayer);
+                            if (player != null && player.isOnline()) {
+                                this.loadFailureHandler.accept(player);
+                            }
+                            completion.completeExceptionally(cause);
+                        } catch (Throwable throwable) {
+                            cause.addSuppressed(throwable);
+                            completion.completeExceptionally(cause);
+                        } finally {
+                            cache.finishLoading(playerUniqueId, fallbackPlayer);
+                        }
                     }
-                    completion.completeExceptionally(cause);
-                } catch (Throwable throwable) {
-                    cause.addSuppressed(throwable);
-                    completion.completeExceptionally(cause);
-                } finally {
-                    cache.finishLoading(playerUniqueId, fallbackPlayer);
-                }
-            });
+            );
         } catch (Throwable throwable) {
             cache.finishLoading(playerUniqueId, fallbackPlayer);
             completion.completeExceptionally(throwable);

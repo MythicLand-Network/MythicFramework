@@ -51,7 +51,12 @@ public final class JdbcValues {
         return value == null ? null : value.intValue();
     }
 
-    public static void bindUuid(PreparedStatement statement, int index, UUID value, DatabaseMode mode) throws SQLException {
+    public static void bindUuid(
+            PreparedStatement statement,
+            int index,
+            UUID value,
+            DatabaseMode mode
+    ) throws SQLException {
         if (value == null) statement.setObject(index, null);
         else if (mode == DatabaseMode.POSTGRESQL) statement.setObject(index, value);
         else statement.setString(index, value.toString());

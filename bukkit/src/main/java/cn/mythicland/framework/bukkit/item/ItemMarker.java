@@ -28,14 +28,15 @@ public record ItemMarker(
         Objects.requireNonNull(values, "values");
         Map<String, String> copy = new LinkedHashMap<>();
         values.forEach((key, value) -> {
-            String normalizedKey = TextValidation.requireText(key, "marker key");
-            if ("schema".equals(normalizedKey)) {
-                throw new IllegalArgumentException("marker values cannot contain reserved key schema");
-            }
-            if (copy.put(normalizedKey, Objects.requireNonNull(value, "marker value")) != null) {
-                throw new IllegalArgumentException("duplicate marker key: " + normalizedKey);
-            }
-        });
+                    String normalizedKey = TextValidation.requireText(key, "marker key");
+                    if ("schema".equals(normalizedKey)) {
+                        throw new IllegalArgumentException("marker values cannot contain reserved key schema");
+                    }
+                    if (copy.put(normalizedKey, Objects.requireNonNull(value, "marker value")) != null) {
+                        throw new IllegalArgumentException("duplicate marker key: " + normalizedKey);
+                    }
+                }
+        );
         values = Map.copyOf(copy);
     }
 
