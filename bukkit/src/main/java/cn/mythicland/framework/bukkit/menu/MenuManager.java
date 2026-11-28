@@ -103,6 +103,12 @@ public final class MenuManager implements Listener, ManagedLifecycle, AutoClosea
         return inventory != null && inventory.getHolder() instanceof MenuHolder;
     }
 
+    /** Identifies managed display inventories whose contents cannot be moved normally. */
+    public boolean isDisplayInventory(Inventory inventory) {
+        return inventory != null && inventory.getHolder() instanceof MenuHolder holder
+                && !holder.menu().allowsInventoryInteraction();
+    }
+
     public void clearSessions() {
         this.taskScheduler.executeSyncIfNeeded(this::clearSessionsNow);
     }

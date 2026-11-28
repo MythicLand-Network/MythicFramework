@@ -39,13 +39,15 @@ class PlayerItemHoldingsTest {
     }
 
     @Test
-    void count_shouldIncludeEquipmentCursorAndContainerButExcludeMenuAndDuplicateInventory() {
+    void count_shouldIncludeEquipmentCursorAndStorageButExcludeDisplayMenuAndDuplicateInventory() {
         when(this.inventory.getItem(39)).thenReturn(new ItemStack(Material.SLIME_BALL));
         when(this.player.getItemOnCursor()).thenReturn(new ItemStack(Material.SLIME_BALL, 2));
         when(this.top.getItem(0)).thenReturn(new ItemStack(Material.SLIME_BALL));
 
         assertEquals(4, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
         when(this.menus.isManagedInventory(this.top)).thenReturn(true);
+        assertEquals(4, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
+        when(this.menus.isDisplayInventory(this.top)).thenReturn(true);
         assertEquals(3, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
         when(this.player.getOpenInventory().getTopInventory()).thenReturn(this.inventory);
         assertEquals(3, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL));
@@ -61,6 +63,8 @@ class PlayerItemHoldingsTest {
         };
         assertEquals(9, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
         when(this.menus.isManagedInventory(this.top)).thenReturn(true);
+        assertEquals(9, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
+        when(this.menus.isDisplayInventory(this.top)).thenReturn(true);
         assertEquals(5, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
         when(this.player.getOpenInventory().getTopInventory()).thenReturn(this.inventory);
         assertEquals(5, this.holdings.count(this.player, item -> item.getType() == Material.SLIME_BALL, counter));
@@ -94,7 +98,7 @@ class PlayerItemHoldingsTest {
 
         verify(this.top).setItem(eq(0), updated.capture());
         assertEquals(2, updated.getValue().getDurability());
-        when(this.menus.isManagedInventory(this.top)).thenReturn(true);
+        when(this.menus.isDisplayInventory(this.top)).thenReturn(true);
         assertFalse(
                 this.holdings.updateFirst(
                         this.player, item -> item.getType() == Material.IRON_PICKAXE,

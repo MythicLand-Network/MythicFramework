@@ -40,6 +40,22 @@ import static org.mockito.Mockito.when;
 
 final class MenuManagerTest {
     @Test
+    void displayInventoriesExcludeEditablePlayerStorage() {
+        MenuManager manager = newManager();
+        Inventory inventory = mock(Inventory.class);
+        AbstractMenu menu = mock(AbstractMenu.class);
+        Object holder = newHolder(UUID.randomUUID(), menu, new Menu(9));
+        assertFalse(manager.isDisplayInventory(null));
+        assertFalse(manager.isDisplayInventory(inventory));
+        when(inventory.getHolder()).thenReturn((InventoryHolder) holder);
+        assertTrue(manager.isManagedInventory(inventory));
+        assertTrue(manager.isDisplayInventory(inventory));
+        when(menu.allowsInventoryInteraction()).thenReturn(true);
+        assertTrue(manager.isManagedInventory(inventory));
+        assertFalse(manager.isDisplayInventory(inventory));
+    }
+
+    @Test
     void refreshOnlyWritesChangedSlotsAndKeepsCurrentButtons() throws ReflectiveOperationException {
         Player player = mock(Player.class);
         Inventory inventory = mock(Inventory.class);

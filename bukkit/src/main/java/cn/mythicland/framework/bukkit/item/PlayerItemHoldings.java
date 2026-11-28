@@ -52,7 +52,7 @@ public final class PlayerItemHoldings {
 
     private Inventory topInventory(Player player) {
         Inventory inventory = player.getOpenInventory().getTopInventory();
-        if (inventory == player.getInventory() || this.menuManager.isManagedInventory(inventory)) return null;
+        if (inventory == player.getInventory() || this.menuManager.isDisplayInventory(inventory)) return null;
         return inventory;
     }
 
