@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -73,11 +74,57 @@ public final class YamlConfigFile {
         throw new IllegalArgumentException(this.file + ": " + key + " must be a string");
     }
 
+    public String stringValue(String key, String defaultValue) {
+        Object value = this.value(key);
+        if (value == null) return defaultValue;
+        if (value instanceof String result) return result;
+        throw new IllegalArgumentException(this.file + ": " + key + " must be a string");
+    }
+
     public int intValue(String key, int defaultValue) {
         Object value = this.value(key);
         if (value == null) return defaultValue;
         if (value instanceof Integer result) return result;
         throw new IllegalArgumentException(this.file + ": " + key + " must be an integer");
+    }
+
+    public double doubleValue(String key, double defaultValue) {
+        Object value = this.value(key);
+        if (value == null) return defaultValue;
+        if (value instanceof Number number && Double.isFinite(number.doubleValue())) {
+            return number.doubleValue();
+        }
+        throw new IllegalArgumentException(this.file + ": " + key + " must be a finite number");
+    }
+
+    public Map<String, YamlConfigFile> sections(String key) {
+        if (!(this.value(key) instanceof Map<?, ?> entries)) {
+            throw new IllegalArgumentException(this.file + ": " + key + " must be a mapping");
+        }
+        Map<String, YamlConfigFile> result = new LinkedHashMap<>();
+        for (var entry : entries.entrySet()) {
+            if (!(entry.getKey() instanceof String name)
+                    || name.isBlank()
+                    || !(entry.getValue() instanceof Map<?, ?> section)) {
+                throw new IllegalArgumentException(this.file + ": " + key + " must contain named mappings");
+            }
+            result.put(name, new YamlConfigFile(this.file, section));
+        }
+        return Map.copyOf(result);
+    }
+
+    public List<YamlConfigFile> sectionList(String key) {
+        if (!(this.value(key) instanceof List<?> entries)) {
+            throw new IllegalArgumentException(this.file + ": " + key + " must be a list of mappings");
+        }
+        List<YamlConfigFile> result = new ArrayList<>();
+        for (Object entry : entries) {
+            if (!(entry instanceof Map<?, ?> section)) {
+                throw new IllegalArgumentException(this.file + ": " + key + " must contain mappings");
+            }
+            result.add(new YamlConfigFile(this.file, section));
+        }
+        return List.copyOf(result);
     }
 
     private Object value(String key) {

@@ -97,6 +97,22 @@ class AliyunNameModerationTest {
     }
 
     @Test
+    void sharedTextTransportPreservesConfidenceAndNicknamePolicy() {
+        this.response.set("{\"Code\":200,\"RequestId\":\"local-id\",\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"political_n\",\"Confidence\":96.5,\"RiskWords\":\"text\"}]}}");
+        var text = new AliyunTextModeration(this.client, ignored -> {}, Runnable::run);
+        var result = text.check("comment_detection_pro", "第一句\n第二句").join();
+        assertTrue(result.available());
+        assertEquals(96.5, result.detections().getFirst().confidence());
+        assertEquals("local-id", result.requestId());
+        assertTrue(this.submittedForm.get().contains("comment_detection_pro"));
+        var names = new AliyunNameModeration(this.client, Logger.getAnonymousLogger(), Runnable::run);
+        this.response.set("{\"Code\":200,\"Data\":{\"RiskLevel\":\"high\",\"Result\":[{\"Label\":\"customized\"},{}]}}");
+        assertEquals(REJECT, names.check("Tester").join());
+        this.response.set("{\"Code\":200,\"Data\":{\"RiskLevel\":\"none\",\"Result\":[{}]}}");
+        assertEquals(ALLOW, names.check("Tester").join());
+    }
+
+    @Test
     void sdkSubmitsTheOriginalNameAndMapsServiceResponses() throws Exception {
         var moderation = new AliyunNameModeration(this.client, Logger.getAnonymousLogger(), Runnable::run);
         String name = "星河_A";

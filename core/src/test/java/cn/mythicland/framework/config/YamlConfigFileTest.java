@@ -55,6 +55,9 @@ class YamlConfigFileTest {
         assertFalse(config.booleanValue("reconnect.enabled", true));
         assertEquals(15, config.intValue("reconnect.seconds", 5));
         assertEquals(10, config.intValue("missing.seconds", 10));
+        assertEquals("sqlite", config.stringValue("database.mode", "sqlite"));
+        assertThrows(IllegalArgumentException.class, () -> config.stringValue("reconnect.enabled", "sqlite"));
+        assertThrows(IllegalArgumentException.class, () -> config.stringValue("database.mode"));
         assertThrows(IllegalArgumentException.class, () -> config.booleanValue("reconnect.seconds", true));
         assertThrows(IllegalArgumentException.class, () -> config.intValue("reconnect.enabled", 5));
         for (String invalid : List.of("reconnect: []", "reconnect: null", "reconnect: {seconds: null}",
